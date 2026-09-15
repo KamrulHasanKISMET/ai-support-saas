@@ -1,0 +1,19 @@
+# Environment files
+.env
+node-api/.env
+python-api/.env
+
+# Node
+node-api/node_modules/
+node-api/dist/
+
+# Python
+python-api/__pycache__/
+python-api/**/__pycache__/
+python-api/.venv/
+python-api/*.egg-info/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

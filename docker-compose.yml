@@ -1,0 +1,111 @@
+version: "3.9"
+
+# ------------------------------------------------------------------
+# Multi-Tenant AI Support SaaS — local development orchestration
+#
+# Services:
+#   postgres     -> source of truth (tenants, customers, conversations,
+#                   knowledge, memory, state, orders, etc.) + pgvector
+#   redis        -> cache, queues, rate limiting, temporary state
+#   python-api   -> FastAPI "AI Service" (Kernel, RAG, Memory, Intent, State)
+#   node-api     -> Express/TypeScript "Business Backend" (SaaS core)
+# ------------------------------------------------------------------
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: saas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-saas_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saas_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_support_saas}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-saas_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: saas_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  python-api:
+    build:
+      context: ./python-api
+    container_name: saas_python_api
+    restart: unless-stopped
+    env_file:
+      - ./python-api/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-saas_user}:${POSTGRES_PASSWORD:-saas_password}@postgres:5432/${POSTGRES_DB:-ai_support_saas}
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-change-me-to-a-long-random-string}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python-api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  node-api:
+    build:
+      context: ./node-api
+    container_name: saas_node_api
+    restart: unless-stopped
+    env_file:
+      - ./node-api/.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-saas_user}:${POSTGRES_PASSWORD:-saas_password}@postgres:5432/${POSTGRES_DB:-ai_support_saas}
+      REDIS_URL: redis://redis:6379/0
+      PYTHON_API_URL: http://python-api:8000
+      PORT: 4000
+      INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-change-me-to-a-long-random-string}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      python-api:
+        condition: service_started
+    volumes:
+      - ./node-api:/app
+      - /app/node_modules
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', res => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+  redis_data:

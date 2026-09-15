@@ -1,0 +1,156 @@
+import time
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.agent.agent_config import AgentConfig, DEFAULT_AGENT_CONFIG, load_agent_config
+from app.core.config import settings
+from app.core.logging import logger
+from app.kernel.kernel import kernel
+from app.schemas.agent import AgentRequest, AgentResponse
+from app.trace.trace_service import record_trace
+from app.trace.trace_types import AgentRunTrace
+
+# =====================================================================
+# CORE AGENT
+#
+# What this IS:
+#   The reusable runtime entry point that receives a customer
+#   interaction and hands it to the existing Kernel. It is the stable
+#   "front door" for every AI-powered interaction, regardless of
+#   channel or business vertical.
+#
+# What this is NOT:
+#   - not the LLM, not RAG, not Memory, not the Context/Intent/State
+#     engines, not FastAPI, not Node.js.
+#   - not an orchestrator itself -- orchestration stays in
+#     app/kernel/kernel.py exactly as it already is.
+#
+# This class contains NO embedding calls, NO LLM calls, and NO business
+# logic of its own. It makes exactly TWO simple DB operations, both
+# kept in their own dedicated modules rather than inlined here:
+#   - load_agent_config() (agent_config.py) -- a single SELECT
+#   - record_trace() (trace/trace_service.py) -- a single INSERT,
+#     isolated so a trace-write failure never affects the reply
+# It still does NOT re-implement Intent/State/Context/RAG/Memory:
+#   1. accepts a normalized AgentRequest
+#   2. loads this tenant's AgentConfig (defensively -- see run() below)
+#   3. calls the existing Kernel
+#   4. shapes the Kernel's result into a stable AgentResponse
+#   5. records an AgentRunTrace of this run (foundation -- see
+#      docs/AGENT.md; write-only, no analytics/read API yet)
+#
+# Core Agent v1 (integration doc section 6):
+#   Request -> Core Agent -> Kernel -> Context -> LLM -> Response
+# Nothing more (no autonomous negotiation, no tool planning, no
+# multi-agent orchestration) is implemented at this stage.
+# =====================================================================
+
+
+class CoreAgent:
+    def __init__(self, config: AgentConfig = DEFAULT_AGENT_CONFIG):
+        # Fallback only, used if load_agent_config() itself fails below.
+        # NOT mutated per-request -- see load_agent_config()'s docstring
+        # for why per-tenant config must stay a local variable.
+        self._fallback_config = config
+
+    async def run(self, db: AsyncSession, request: AgentRequest) -> AgentResponse:
+        agent_run_id = uuid.uuid4()
+        started_at = time.perf_counter()
+
+        try:
+            tenant_config = await load_agent_config(db, request.tenantId)
+        except Exception:
+            logger.error(
+                "Failed to load agent_configs for tenant=%s -- using default",
+                request.tenantId,
+                exc_info=True,
+            )
+            tenant_config = self._fallback_config
+
+        logger.info(
+            "CoreAgent.run agent_run_id=%s tenant=%s customer=%s conversation=%s "
+            "channel=%s vertical=%s tools_enabled=%s",
+            agent_run_id,
+            request.tenantId,
+            request.customerId,
+            request.conversationId,
+            request.channel,
+            tenant_config.vertical,
+            tenant_config.tools_enabled,
+        )
+
+        # tenant_config is loaded and logged for observability, but not
+        # yet consumed by the Kernel -- there's no Tool Engine yet to
+        # gate on tools_enabled, and no per-vertical branching exists.
+        # This is intentionally just the wiring; see docs/ROADMAP.md
+        # item 3 for what will actually consume it.
+
+        # Delegate ALL orchestration to the existing Kernel. Core Agent
+        # does not re-implement Intent/State/Context/RAG/Memory -- see
+        # app/kernel/kernel.py for that lifecycle.
+        kernel_result = await kernel.run(
+            db=db,
+            tenant_id=request.tenantId,
+            customer_id=request.customerId,
+            conversation_id=request.conversationId,
+            message=request.message,
+            request_id=request.requestId,
+        )
+
+        latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+        # Agent Run Trace (docs/AGENT.md) -- foundation, write-only.
+        # record_trace() isolates its own failures internally; it never
+        # raises, so this can never delay or break the response below.
+        await record_trace(
+            db,
+            AgentRunTrace(
+                agent_run_id=agent_run_id,
+                tenant_id=request.tenantId,
+                customer_id=request.customerId,
+                conversation_id=request.conversationId,
+                message_id=request.messageId,
+                request_id=request.requestId,
+                detected_language=kernel_result.detectedLanguage,
+                reply_language=kernel_result.replyLanguage,
+                normalized_input=kernel_result.normalizedMessage,
+                intent=kernel_result.intent,
+                confidence=kernel_result.confidence,
+                state=kernel_result.state,
+                retrieval_used=kernel_result.retrievalUsed,
+                retrieval_chunk_count=kernel_result.retrievalChunkCount,
+                decision=kernel_result.decision,
+                tools_called=kernel_result.toolsCalled,
+                response=kernel_result.reply,
+                model=settings.llm_model,
+                latency_ms=latency_ms,
+                cost_usd=None,  # not populated yet -- no per-model pricing table exists
+                error="kernel_fallback" if kernel_result.errorOccurred else None,
+                language_latency_ms=kernel_result.languageLatencyMs,
+                intent_latency_ms=kernel_result.intentLatencyMs,
+                context_latency_ms=kernel_result.contextLatencyMs,
+                memory_latency_ms=kernel_result.memoryLatencyMs,
+                rag_latency_ms=kernel_result.ragLatencyMs,
+                llm_latency_ms=kernel_result.llmLatencyMs,
+                error_category=kernel_result.errorCategory,
+            ),
+        )
+
+        return AgentResponse(
+            reply=kernel_result.reply,
+            intent=kernel_result.intent,
+            confidence=kernel_result.confidence,
+            state=kernel_result.state,
+            toolsCalled=kernel_result.toolsCalled,
+            metadata={
+                **request.metadata,
+                "language": {
+                    "detected": kernel_result.detectedLanguage,
+                    "reply": kernel_result.replyLanguage,
+                },
+            },
+        )
+
+
+core_agent = CoreAgent()

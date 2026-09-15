@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Connect WhatsApp — Support Console</title>
+<style>
+  :root {
+    --paper: #faf8f4;
+    --ink: #1c1b19;
+    --ink-soft: #57534a;
+    --line: #ddd6c9;
+    --teal: #1f5f5b;
+    --teal-dark: #164643;
+    --amber: #b5762f;
+    --amber-bg: #f6ead9;
+    --green-bg: #e7efe1;
+    --green-ink: #35562b;
+    --red-bg: #f6e6e1;
+    --red-ink: #8a3a24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  header {
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  header .wordmark {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--ink);
+  }
+  main {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  h1 {
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    font-weight: 500;
+    font-size: 27px;
+    line-height: 1.3;
+    margin: 0 0 8px;
+  }
+  p.lede {
+    color: var(--ink-soft);
+    margin: 0 0 40px;
+    max-width: 38ch;
+  }
+  .step {
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 36px;
+  }
+  .step[data-done="true"] { opacity: 0.55; }
+  .step-num {
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 1px solid var(--ink);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .step h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .step .sub {
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    margin: 0 0 16px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin: 14px 0 5px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #fff;
+    font-size: 14.5px;
+    color: var(--ink);
+    font-family: inherit;
+  }
+  input:focus {
+    outline: 2px solid var(--teal);
+    outline-offset: 1px;
+    border-color: var(--teal);
+  }
+  input[readonly] { background: #f2efe9; color: var(--ink-soft); }
+  button {
+    margin-top: 18px;
+    padding: 9px 16px;
+    border: none;
+    border-radius: 5px;
+    background: var(--teal);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: var(--teal-dark); }
+  button:disabled { background: #b9b3a4; cursor: default; }
+  button.secondary {
+    background: none;
+    color: var(--ink-soft);
+    font-weight: 500;
+    padding: 9px 4px;
+    text-decoration: underline;
+  }
+  button.secondary:hover { background: none; color: var(--ink); }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+  .status.connected { background: var(--green-bg); color: var(--green-ink); }
+  .status.disconnected { background: var(--amber-bg); color: var(--amber); }
+  .status .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .message {
+    font-size: 13.5px;
+    padding: 10px 12px;
+    border-radius: 5px;
+    margin-top: 14px;
+  }
+  .message.error { background: var(--red-bg); color: var(--red-ink); }
+  .message.ok { background: var(--green-bg); color: var(--green-ink); }
+  .hint {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .hint a { color: var(--teal); }
+  .hidden { display: none !important; }
+  .signed-in-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+  }
+</style>
+</head>
+<body>
+
+<header><span class="wordmark">Support Console</span></header>
+
+<main>
+  <h1>Connect your WhatsApp number</h1>
+  <p class="lede">Once connected, every message to this number is answered by your AI agent automatically.</p>
+
+  <div id="signedInRow" class="signed-in-row hidden">
+    <span id="signedInAs"></span>
+    <button class="secondary" id="signOutBtn" type="button">Sign out</button>
+  </div>
+
+  <section class="step" id="loginStep" data-done="false">
+    <div class="step-num">1</div>
+    <h2>Sign in</h2>
+    <p class="sub">Use your Support Console dashboard login.</p>
+
+    <label for="tenantSlug">Business ID</label>
+    <input id="tenantSlug" autocomplete="organization" placeholder="your-business-slug" />
+
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" />
+
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+
+    <button id="loginBtn" type="button">Sign in</button>
+    <div id="loginMessage"></div>
+  </section>
+
+  <section class="step hidden" id="connectStep">
+    <div class="step-num">2</div>
+    <h2>WhatsApp number</h2>
+
+    <div id="statusLoading" class="sub">Checking connection…</div>
+    <div id="statusBadge" class="hidden"></div>
+
+    <div id="connectedInfo" class="hidden">
+      <label>Connected number ID</label>
+      <input id="connectedAccountId" readonly />
+    </div>
+
+    <p class="sub" id="formIntro">Paste the two values from your Meta WhatsApp Business setup.</p>
+
+    <label for="phoneNumberId">Phone number ID</label>
+    <input id="phoneNumberId" placeholder="e.g. 109876543212345" />
+
+    <label for="accessToken">Access token</label>
+    <input id="accessToken" type="password" placeholder="paste the permanent access token" />
+
+    <button id="saveBtn" type="button">Save connection</button>
+    <div id="saveMessage"></div>
+
+    <p class="hint">
+      Need these two values? In Meta Business Manager, open your WhatsApp
+      app under <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">Meta for Developers</a>
+      → WhatsApp → API Setup. The phone number ID is listed next to your
+      number; the access token should be a permanent one generated for a
+      System User, not the 24-hour temporary token shown by default.
+    </p>
+  </section>
+</main>
+
+<script>
+(function () {
+  const API_BASE = ""; // same origin as this page — served by node-api itself
+
+  const el = (id) => document.getElementById(id);
+  const tokenKey = "supportConsoleToken";
+  const tenantKey = "supportConsoleTenantSlug";
+
+  function getToken() { return sessionStorage.getItem(tokenKey); }
+  function setSession(token, tenantSlug) {
+    sessionStorage.setItem(tokenKey, token);
+    sessionStorage.setItem(tenantKey, tenantSlug);
+  }
+  function clearSession() {
+    sessionStorage.removeItem(tokenKey);
+    sessionStorage.removeItem(tenantKey);
+  }
+
+  function showMessage(container, text, kind) {
+    container.innerHTML = text
+      ? '<div class="message ' + kind + '">' + text + "</div>"
+      : "";
+  }
+
+  async function apiFetch(path, options) {
+    const res = await fetch(API_BASE + path, options);
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      const message = (body && body.message) || "Something went wrong (" + res.status + ").";
+      throw new Error(message);
+    }
+    return body;
+  }
+
+  function enterSignedInState() {
+    el("loginStep").classList.add("hidden");
+    el("connectStep").classList.remove("hidden");
+    el("signedInRow").classList.remove("hidden");
+    el("signedInAs").textContent = "Signed in — " + sessionStorage.getItem(tenantKey);
+    loadStatus();
+  }
+
+  function enterSignedOutState() {
+    el("loginStep").classList.remove("hidden");
+    el("connectStep").classList.add("hidden");
+    el("signedInRow").classList.add("hidden");
+  }
+
+  async function loadStatus() {
+    el("statusLoading").classList.remove("hidden");
+    el("statusBadge").classList.add("hidden");
+    el("connectedInfo").classList.add("hidden");
+    try {
+      const data = await apiFetch("/channels/whatsapp/credentials", {
+        headers: { Authorization: "Bearer " + getToken() },
+      });
+      el("statusLoading").classList.add("hidden");
+      el("statusBadge").classList.remove("hidden");
+      if (data.connected) {
+        el("statusBadge").className = "status connected";
+        el("statusBadge").innerHTML = '<span class="dot"></span> Connected';
+        el("connectedInfo").classList.remove("hidden");
+        el("connectedAccountId").value = data.externalAccountId;
+        el("formIntro").textContent = "Enter new values below to reconnect or rotate the token.";
+      } else {
+        el("statusBadge").className = "status disconnected";
+        el("statusBadge").innerHTML = '<span class="dot"></span> Not connected yet';
+      }
+    } catch (err) {
+      el("statusLoading").textContent = "Could not check connection status.";
+    }
+  }
+
+  el("loginBtn").addEventListener("click", async () => {
+    const tenantSlug = el("tenantSlug").value.trim();
+    const email = el("email").value.trim();
+    const password = el("password").value;
+    showMessage(el("loginMessage"), "", "");
+    if (!tenantSlug || !email || !password) {
+      showMessage(el("loginMessage"), "Fill in all three fields.", "error");
+      return;
+    }
+    el("loginBtn").disabled = true;
+    try {
+      const data = await apiFetch("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantSlug, email, password }),
+      });
+      setSession(data.token, tenantSlug);
+      enterSignedInState();
+    } catch (err) {
+      showMessage(el("loginMessage"), err.message, "error");
+    } finally {
+      el("loginBtn").disabled = false;
+    }
+  });
+
+  el("saveBtn").addEventListener("click", async () => {
+    const phoneNumberId = el("phoneNumberId").value.trim();
+    const accessToken = el("accessToken").value.trim();
+    showMessage(el("saveMessage"), "", "");
+    if (!phoneNumberId || !accessToken) {
+      showMessage(el("saveMessage"), "Both fields are required.", "error");
+      return;
+    }
+    el("saveBtn").disabled = true;
+    try {
+      await apiFetch("/channels/whatsapp/credentials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + getToken(),
+        },
+        body: JSON.stringify({ phoneNumberId, accessToken }),
+      });
+      showMessage(el("saveMessage"), "Connected. Messages to this number will now reach your AI agent.", "ok");
+      el("accessToken").value = "";
+      loadStatus();
+    } catch (err) {
+      showMessage(el("saveMessage"), err.message, "error");
+    } finally {
+      el("saveBtn").disabled = false;
+    }
+  });
+
+  el("signOutBtn").addEventListener("click", () => {
+    clearSession();
+    enterSignedOutState();
+  });
+
+  if (getToken()) {
+    enterSignedInState();
+  }
+})();
+</script>
+
+</body>
+</html>
