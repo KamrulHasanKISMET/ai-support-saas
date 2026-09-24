@@ -73,3 +73,45 @@ export function requireAuth(
     next(new AppError("INVALID_TOKEN", "Invalid or expired token.", 401));
   }
 }
+
+/**
+ * For /customers only (app.ts): this single router serves TWO actors
+ * that the rest of the codebase keeps on separate routers/paths --
+ * OUR OWN channel adapters (e.g. the website widget, x-api-key,
+ * `requireApiKey` above) creating/reading a customer record for the
+ * person they're chatting with, AND staff on the dashboard (JWT,
+ * `requireAuth` above) listing/searching/editing/deleting their
+ * tenant's customers (CUSTOMER-KNOWLEDGE-RAG-API-001 phase 1).
+ *
+ * Every other router in this codebase needs exactly one of the two
+ * (see conversations.routes.ts / channels.routes.ts comments for
+ * "dashboard-facing" vs messages.routes.ts for "channel-facing") --
+ * splitting /customers into two routers on the same base path doesn't
+ * work with Express's middleware chain (a throwing first-in-chain
+ * `requireApiKey` would reject a JWT-only dashboard request before a
+ * second `app.use("/customers", requireAuth, ...)` ever ran). This
+ * tries `x-api-key` first (cheaper, no crypto), falls back to a
+ * Bearer JWT, and only 401s if NEITHER credential is present/valid --
+ * it doesn't change what either credential means, just accepts both
+ * on this one shared path. `req.authType` still tells a handler which
+ * one was actually used, if that ever matters.
+ */
+export async function requireApiKeyOrAuth(
+  req: TenantRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (req.header("x-api-key")) {
+    return requireApiKey(req, res, next);
+  }
+  if (req.header("authorization")) {
+    return requireAuth(req, res, next);
+  }
+  next(
+    new AppError(
+      "MISSING_CREDENTIALS",
+      "An x-api-key header or Authorization: Bearer <token> header is required.",
+      401
+    )
+  );
+}

@@ -10,3 +10,9 @@ openai==1.51.0
 numpy==1.26.4
 python-dotenv==1.0.1
 httpx==0.27.2
+prometheus-client==0.21.0
+
+# Knowledge Base ingestion (CUSTOMER-KNOWLEDGE-RAG-API-001).
+python-multipart==0.0.12
+pypdf==5.0.1
+python-docx==1.1.2

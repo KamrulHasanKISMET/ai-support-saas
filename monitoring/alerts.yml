@@ -1,0 +1,220 @@
+# Production Reliability workstream. Practical warning/critical
+# thresholds, loaded by monitoring/prometheus.yml. These are STARTING
+# POINTS based on the app's shape (chat-style request/response, single
+# Postgres instance, single-node docker-compose deployment), not
+# numbers derived from a load test against a live deployment -- see
+# docs/RELIABILITY.md "Load testing" for the honest status of that, and
+# retune these once real traffic/load-test data exists (same doc,
+# "Scaling triggers").
+#
+# Deliberately does NOT alert on anything in app/trace/ (Agent Run
+# Trace / Kernel tracing) -- that's a different workstream.
+
+groups:
+  - name: service_availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"node-api|python-api|postgres-exporter|redis-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Prometheus has failed to scrape {{ $labels.job }} for 1m. If this is node-api or python-api, check GET /health and container logs first."
+
+      - alert: ReadinessFailing
+        # Both services expose GET /health/ready -- Prometheus doesn't
+        # scrape it directly (it's not metrics-formatted), so this
+        # relies on the blackbox-style signal available today: a
+        # service scoring `up == 1` (process alive, /metrics reachable)
+        # while its own DB pool gauge reports zero usable connections
+        # is the closest proxy without adding blackbox_exporter. See
+        # docs/RELIABILITY.md "Remaining risks" -- a direct
+        # /health/ready probe (blackbox_exporter) is a reasonable
+        # follow-up, not included here to keep this workstream's
+        # footprint small.
+        expr: db_pool_total_connections{job="node-api"} == 0 and db_pool_idle_connections{job="node-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "node-api has zero live DB connections"
+          description: "node-api's pool reports 0 total/idle connections for 2m -- likely can't reach Postgres. Check GET /health/ready."
+
+  - name: capacity
+    rules:
+      - alert: HostCpuHighWarning
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 75
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU usage above 75% for 10m ({{ $labels.instance }})"
+
+      - alert: HostCpuHighCritical
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host CPU usage above 90% for 5m ({{ $labels.instance }}) -- see docs/RELIABILITY.md Scaling triggers"
+
+      - alert: HostMemoryHighWarning
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory usage above 80% for 10m ({{ $labels.instance }})"
+
+      - alert: HostMemoryHighCritical
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 92
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host memory usage above 92% for 5m ({{ $labels.instance }}) -- risk of OOM kill"
+
+      - alert: HostDiskHighWarning
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 75
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage above 75% on {{ $labels.mountpoint }} ({{ $labels.instance }})"
+
+      - alert: HostDiskHighCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk usage above 90% on {{ $labels.mountpoint }} ({{ $labels.instance }}) -- Postgres data volume filling up risks the database refusing writes"
+
+      - alert: ContainerMemoryHighWarning
+        expr: (container_memory_working_set_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""}) > 0.8 and container_spec_memory_limit_bytes{name!=""} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} above 80% of its memory limit"
+
+  - name: application_performance
+    rules:
+      - alert: HighLatencyP95Warning
+        expr: histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} P95 latency above 1s for 10m"
+
+      - alert: HighLatencyP95Critical
+        expr: histogram_quantile(0.95, sum by (le, job) (rate(http_request_duration_seconds_bucket[5m]))) > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} P95 latency above 3s for 5m"
+
+      - alert: HighErrorRateWarning
+        expr: |
+          sum by (job) (rate(http_errors_total[5m]))
+          /
+          sum by (job) (rate(http_requests_total[5m]))
+          > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} error rate above 2% for 10m"
+
+      - alert: HighErrorRateCritical
+        expr: |
+          sum by (job) (rate(http_errors_total[5m]))
+          /
+          sum by (job) (rate(http_requests_total[5m]))
+          > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} error rate above 10% for 5m"
+
+  - name: database
+    rules:
+      - alert: DbPoolExhaustionWarning
+        expr: db_pool_waiting_requests > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-api has requests queued waiting for a DB connection"
+          description: "db_pool_waiting_requests > 0 for 2m -- pool is saturated. See docs/RELIABILITY.md Scaling triggers before raising DB_POOL_MAX."
+
+      - alert: DbPoolNearOverflowWarning
+        expr: db_pool_overflow_connections{job="python-api"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "python-api is using overflow connections beyond its base pool size"
+
+      - alert: DbConnectionsNearMaxWarning
+        expr: sum(pg_stat_activity_count) / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postgres connections above 80% of max_connections"
+
+      - alert: DbConnectionsNearMaxCritical
+        expr: sum(pg_stat_activity_count) / pg_settings_max_connections > 0.95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres connections above 95% of max_connections -- new connections (from either service) will start failing"
+
+      - alert: DbQueryLatencyP95Warning
+        expr: histogram_quantile(0.95, sum by (le, job) (rate(db_query_duration_seconds_bucket[5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} DB query P95 latency above 500ms for 10m"
+
+      - alert: DbLocksWaiting
+        expr: sum(pg_locks_count{mode!~"AccessShareLock|RowShareLock"}) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 20 non-shared Postgres locks held for 5m -- possible lock contention"
+
+  - name: backups
+    rules:
+      - alert: BackupFailed
+        expr: pg_backup_last_success == 0 or pg_base_backup_last_success == 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Last scheduled backup failed"
+          description: "Check `docker logs saas_pg_backup`. RPO is at risk until the next successful backup -- see docs/RELIABILITY.md."
+
+      - alert: BackupStale
+        expr: (time() - pg_backup_last_run_timestamp_seconds) > 90000
+        labels:
+          severity: critical
+        annotations:
+          summary: "No logical backup has run in over 25 hours"
+          description: "Expected cadence is every BACKUP_INTERVAL_HOURS (default 24h). The pg_backup container may be down."
+
+      - alert: BaseBackupStale
+        expr: (time() - pg_base_backup_last_run_timestamp_seconds) > 90000
+        labels:
+          severity: critical
+        annotations:
+          summary: "No physical base backup has run in over 25 hours"
+          description: "PITR range is limited to WAL retained since the last successful base backup. See docs/RELIABILITY.md."

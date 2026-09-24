@@ -9,6 +9,21 @@ version: "3.9"
 #   redis        -> cache, queues, rate limiting, temporary state
 #   python-api   -> FastAPI "AI Service" (Kernel, RAG, Memory, Intent, State)
 #   node-api     -> Express/TypeScript "Business Backend" (SaaS core)
+#   pg_backup    -> scheduled logical + physical Postgres backups (see
+#                   ops/backup/) -- part of the default stack, since
+#                   backups are the point of the Production Reliability
+#                   workstream, not an optional extra.
+#
+# `docker compose up` starts exactly the services above -- unchanged
+# behavior from before this workstream.
+#
+# `docker compose --profile monitoring up` ADDITIONALLY starts a
+# Prometheus + Alertmanager + exporter stack (prometheus, alertmanager,
+# node-exporter, cadvisor, postgres-exporter, redis-exporter) for
+# capacity/performance/DB monitoring and alerting. See
+# docs/RELIABILITY.md and monitoring/*.yml. Kept behind a profile so
+# the base dev experience (4 containers, `npm run dev`-style hot
+# reload) is never affected by it.
 # ------------------------------------------------------------------
 
 services:
@@ -25,6 +40,30 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
+      # Shared with `pg_backup` -- Postgres writes archived WAL segments
+      # here (archive_command below), pg_base_backup.sh/pitr_restore.sh
+      # read them back. See docs/RELIABILITY.md "PITR design".
+      - wal_archive:/wal_archive
+    # Production Reliability workstream: WAL archiving enabled so a
+    # physical base backup (pg_base_backup.sh) plus this archive can be
+    # replayed for point-in-time recovery. `wal_level=replica` is the
+    # minimum needed for archiving (also enables physical replication
+    # later, not used yet). `archive_timeout=300` bounds how much
+    # unarchived WAL (and therefore how much data) a crash between
+    # backups could lose, independent of write volume -- see
+    # docs/RELIABILITY.md "RPO/RTO".
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=test ! -f /wal_archive/%f && cp %p /wal_archive/%f
+      - -c
+      - archive_timeout=300
+      - -c
+      - max_wal_senders=3
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-saas_user}"]
       interval: 5s
@@ -66,12 +105,23 @@ services:
     volumes:
       - ./python-api:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Liveness for the orchestrator (docker-compose restarts on repeated
+    # failure; a real orchestrator's liveness probe would use the same
+    # endpoint). Uses Python itself -- no curl/wget in python:3.12-slim
+    # by default, and adding one is unnecessary image bloat for a check
+    # this simple. See docs/RELIABILITY.md.
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
 
   node-api:
     build:
@@ -86,6 +136,7 @@ services:
       PYTHON_API_URL: http://python-api:8000
       PORT: 4000
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:-change-me-to-a-long-random-string}
+      UPLOADS_DIR: /app/uploads
     ports:
       - "4000:4000"
     depends_on:
@@ -98,14 +149,165 @@ services:
     volumes:
       - ./node-api:/app
       - /app/node_modules
+      - node_uploads:/app/uploads
     command: npm run dev
+    # Uses Node itself for the same reason python-api's healthcheck
+    # uses Python -- no extra package needed in node:20-alpine.
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', res => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:4000/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
+
+  # Scheduled backups -- see ops/backup/README.md and
+  # docs/RELIABILITY.md "PostgreSQL backup" / "PITR". Part of the
+  # default stack (not a profile): a reliability workstream that ships
+  # monitoring but not backups isn't done.
+  pg_backup:
+    image: pgvector/pgvector:pg16
+    container_name: saas_pg_backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-saas_user}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-saas_password}
+      PGDATABASE: ${POSTGRES_DB:-ai_support_saas}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      BACKUP_DIR: /backup/dumps
+      BASE_BACKUP_DIR: /backup/base
+      BASE_BACKUP_ROOT: /backup/base
+      WAL_ARCHIVE_DIR: /backup/wal_archive
+      METRICS_TEXTFILE_DIR: /backup/metrics
+    volumes:
+      - ./ops/backup:/backup/scripts:ro
+      - pg_backups:/backup/dumps
+      - pg_base_backups:/backup/base
+      - wal_archive:/backup/wal_archive
+      - metrics_textfile:/backup/metrics
+    entrypoint: ["/backup/scripts/backup_loop.sh"]
+
+  # -----------------------------------------------------------------
+  # Monitoring stack -- `docker compose --profile monitoring up`
+  # -----------------------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: saas_prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - node-api
+      - python-api
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: saas_alertmanager
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "9093:9093"
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: saas_node_exporter
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    # Host CPU/RAM/disk (capacity monitoring item 1) plus a directory
+    # for the pg_backup_* / pg_base_backup_* textfile metrics written
+    # by ops/backup/*.sh.
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - metrics_textfile:/textfile_collector:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/host/root"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--collector.textfile.directory=/textfile_collector"
+    ports:
+      - "9100:9100"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: saas_cadvisor
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    # Per-container CPU/RAM (capacity monitoring item 1, "container
+    # health"). Needs read access to the host's cgroup/docker state;
+    # on Docker Desktop (Mac/Windows) some container-level metrics are
+    # unavailable due to the VM boundary -- host CPU/RAM/disk via
+    # node-exporter above is unaffected. See docs/RELIABILITY.md.
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: saas_postgres_exporter
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-saas_user}:${POSTGRES_PASSWORD:-saas_password}@postgres:5432/${POSTGRES_DB:-ai_support_saas}?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: saas_redis_exporter
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
   redis_data:
+  wal_archive:
+  pg_backups:
+  pg_base_backups:
+  metrics_textfile:
+  prometheus_data:
+  alertmanager_data:
+  # Knowledge Base document storage (CUSTOMER-KNOWLEDGE-RAG-API-001) --
+  # see node-api/src/utils/storage.ts. Named volume so uploaded files
+  # survive a `docker compose restart`/rebuild of node-api.
+  node_uploads:

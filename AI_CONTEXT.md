@@ -38,6 +38,7 @@ limiting/queues only, never durable state.
 | How mixed Bangla/English input is handled | `docs/LANGUAGE.md` |
 | How customer facts are extracted/stored | `docs/MEMORY.md` |
 | How knowledge retrieval works (and why it currently fails) | `docs/RAG.md` |
+| How ContextEngine budgets, validates, and assembles the final prompt context | `docs/CONTEXT_ENGINE.md` |
 | What Core Agent is and isn't | `docs/AGENT.md` |
 | Metrics, health checks, structured logging, error categories | `docs/OBSERVABILITY.md` |
 | Every HTTP endpoint, its auth requirement, request/response shape | `docs/API_CONTRACTS.md` |

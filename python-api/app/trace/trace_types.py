@@ -55,3 +55,15 @@ class AgentRunTrace:
     rag_latency_ms: int | None = None
     llm_latency_ms: int | None = None
     error_category: str | None = None  # ErrorCategory value; see app/core/error_types.py
+
+    # Commercial V1 trace lifecycle (db/init/008_trace_lifecycle.sql).
+    # trace_id completes the correlation chain: request_id -> trace_id
+    # -> agent_run_id -> tenant_id -> customer_id -> conversation_id ->
+    # message_id -> channel. See that migration's header comment for
+    # why trace_id is kept distinct from request_id even though they
+    # carry the same value today.
+    trace_id: str | None = None
+    channel: str | None = None
+    status: str = "completed"  # 'completed' | 'partial' | 'error'
+    failed_step: str | None = None
+    steps: list[dict] = field(default_factory=list)

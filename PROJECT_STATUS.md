@@ -73,7 +73,7 @@ unwired). Full detail in `docs/AGENT.md` and `docs/ARCHITECTURE.md`.
 | Language Engine | `app/language/` | ✅ runs first in Kernel; v2 adds `communication_style`, `is_ambiguous`/`ambiguity_reason`, `entity_spans`, `original_message` — see `docs/LANGUAGE.md`. `entity_spans` is consumed by Intent Engine as an advisory hint; `communication_style`/`is_ambiguous` are logged only, not yet behavior-affecting |
 | Intent Engine | `app/intent/` | ✅ classifies on the *normalized* message; now also accepts an optional `entity_hints` param (Language Engine's `entity_spans`, advisory only — Intent Engine still owns all entity typing) |
 | State Engine | `app/state/` | ✅ upserts slots from intent entities; `ConversationStatus` enum defined but **never used** |
-| Context Engine | `app/context/` | ✅ assembles Memory+RAG+State, but see the RAG caveat below |
+| Context Engine | `app/context/` | ✅ assembles Memory+RAG+State (see the RAG caveat below), plus a full Commercial V1 pipeline: token budgeting, a compression foundation (`NoOpCompressor` — no real compression yet, by construction), and validation (tenant-scope guard + malformed/duplicate removal). See `docs/CONTEXT_ENGINE.md` |
 | Memory Service (write path) | `app/memory/memory_service.py` | ✅ extraction → confidence gate (0.55) → insert |
 | Memory Search (read path) | `app/memory/memory_search.py` | 🟡 `get_all()` used by Context Engine; `semantic_search()` (embedding-based) **defined but never called anywhere** |
 | RAG (hybrid search + rerank) | `app/rag/` | 🟡 embedding provider now implemented (OpenAI, requires `OPENAI_API_KEY`); **no knowledge ingestion pipeline exists**, so `knowledge_chunks` is empty and RAG returns zero results even though it no longer errors — see below |
@@ -123,17 +123,34 @@ simply return zero candidates. Building the ingestion pipeline is
 | `agent_run_id` / full request tracing fields | ✅ | Every `agent_run_traces` row carries `agent_run_id` + `request_id` + `tenant_id` + `customer_id` + `conversation_id` + `message_id` together — see "Agent Run Trace" below |
 | Docker healthcheck for `python-api`/`node-api` | ✅ | `docker-compose.yml` — polls each service's own `/health`. `postgres`/`redis` already had these; the app services didn't until this phase |
 
-### Agent Run Trace — now carries per-step latency + error category
+### Agent Run Trace — per-step latency, error category, and Commercial V1 lifecycle fields
 
-`agent_run_traces` (unchanged table, extended by `007_observability.sql`)
-gained `language_latency_ms`, `intent_latency_ms`, `context_latency_ms`,
-`memory_latency_ms`, `rag_latency_ms`, `llm_latency_ms`, `error_category`.
-**A real bug was found and fixed while wiring this up**: the Kernel
-computed all six latencies and the error category, but
-`AgentRunTrace`/`record_trace()` (`python-api/app/trace/`) were never
-updated to actually include them in the `INSERT` — the data was
-silently discarded before this phase. Fixed, with a regression test
-(`test_record_trace_includes_per_step_latency_and_error_category`).
+`agent_run_traces` (unchanged table, extended by `007_observability.sql`
+then `008_trace_lifecycle.sql`) gained `language_latency_ms`,
+`intent_latency_ms`, `context_latency_ms`, `memory_latency_ms`,
+`rag_latency_ms`, `llm_latency_ms`, `error_category`, and then
+`trace_id`, `channel`, `status`, `failed_step`, `steps`.
+**The same class of bug was found and fixed twice** — once for the
+`007` columns, once again for the `008` columns: the Kernel computed
+the data, but `AgentRunTrace`/`record_trace()`
+(`python-api/app/trace/`) weren't updated to include it in the
+`INSERT`, so it was silently discarded before being caught. Both fixed,
+each with its own regression test
+(`test_record_trace_includes_per_step_latency_and_error_category`,
+`test_record_trace_includes_commercial_v1_lifecycle_fields`).
+
+The correlation chain is now complete: `request_id` → `trace_id` →
+`agent_run_id` → `tenant_id` → `customer_id` → `conversation_id` →
+`message_id` → `channel`, all on one row. `status`
+(`'completed'|'partial'|'error'`) and `steps` (per-stage status/
+duration/error) mean a degraded-but-answered turn (e.g. RAG failed but
+Memory didn't) is no longer indistinguishable from a fully healthy one
+— see `docs/AGENT.md`'s "Commercial V1 lifecycle hardening" section
+and `docs/CONTEXT_ENGINE.md` for how Context Engine's budget/
+compression/validation results feed into the same `steps` list. New
+per-step error text is redacted via `app/core/trace_sanitize.py`
+before storage — a real redaction bug (Authorization/Bearer pattern
+ordering) was caught by its own test suite and fixed in this phase.
 
 ## Error handling
 
@@ -204,7 +221,9 @@ pure-logic pieces have automated proof of correctness.
 | `node-api/src/utils/errorCategory.test.ts` | ✅ | 11 tests, all passing. Timeout/DB/Redis/validation detection, priority ordering (timeout beats a DB-sounding message), never throws on a non-Error value |
 | `node-api/src/utils/metrics.test.ts` | ✅ | 6 tests, all passing. Request/error counting, per-status tracking, infra snapshot sanity (non-negative, never throws) |
 | `python-api/tests/test_observability.py` | ✅ | 18 tests, all passing — mirrors the two Node test files above for parity: `classify_exception()` (11 tests: timeout priority, anthropic/openai→llm_error, sqlalchemy/asyncpg→database_error, redis→redis_error, ValueError/TypeError→validation_error, never raises) + `metrics.py`'s counters (7 tests). Needs no test stubs — `error_types.py`/`metrics.py` have zero external dependencies |
-| `python-api/tests/test_agent_foundation.py`'s trace tests | ✅ | Now includes a regression test for the per-step-latency bug fixed in this phase (see "Agent Run Trace" above) |
+| `python-api/tests/test_trace_sanitize.py` | ✅ | 12 tests, all passing. Security-critical: verifies DSN credentials, Bearer tokens, api_key=/password= fields, and sk-... style keys are all redacted before any per-step error text could reach the trace table |
+| `python-api/tests/test_context_engine.py` | ✅ | 22 tests, all passing. Real `ContextEngine`, only the DB-backed calls mocked. Covers tenant-scope validation (refuses invalid ids without querying), independent memory/RAG failure isolation, budgeting (priority order, never truncates mid-item, state reserved first), and validation (dedup, malformed removal, empty-input safety) |
+| `python-api/tests/test_agent_foundation.py`'s trace tests | ✅ | Now includes regression tests for both the per-step-latency bug and the Commercial V1 lifecycle field bug fixed in this phase (see "Agent Run Trace" above) |
 | `python-api/tests/test_language_engine.py` | ✅ | First real test file in the repo (previously `tests/` was empty on both services). 14 tests, all passing. Exercises the actual `language_engine.py`/`intent_engine.py` production code with only `ai_service.complete_json` (the LLM network boundary) mocked — covers Bangla, Banglish, mixed Bangla-English, short contextual follow-ups, ambiguous input, original-message preservation, and defensive parsing of malformed LLM output. Run: `docker compose exec python-api python -m unittest tests.test_language_engine -v` |
 | `python-api/tests/test_agent_foundation.py` | ✅ | 12 tests, all passing. Covers Capability Registry (register/get/duplicate-rejection/starts-empty), Goal/Outcome (pure-function determinism), Tenant Brain (composes `agent_configs` + `business_rules`, defensive fallback on either query failing), and Agent Run Trace (insert+commit shape, isolated-failure-never-raises). Uses a fake in-memory DB session, not a real Postgres connection. Run: `docker compose exec python-api python -m unittest tests.test_agent_foundation -v` |
 | `node-api/src/modules/customers/identity_resolution.test.ts` | ✅ | 8 tests, all passing (Node's built-in `node:test`). Priority order, tenant isolation, no-accidental-cross-matching. |

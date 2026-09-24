@@ -100,6 +100,14 @@ class CoreAgent:
 
         latency_ms = int((time.perf_counter() - started_at) * 1000)
 
+        # trace_id completes the correlation chain (see
+        # db/init/008_trace_lifecycle.sql's header comment): reuse
+        # node-api's request_id when present so one customer
+        # interaction has one trace_id end to end; only generate a
+        # fresh one on the rare path where no request_id arrived
+        # (e.g. a direct/debug call to this service).
+        trace_id = request.requestId or str(uuid.uuid4())
+
         # Agent Run Trace (docs/AGENT.md) -- foundation, write-only.
         # record_trace() isolates its own failures internally; it never
         # raises, so this can never delay or break the response below.
@@ -134,6 +142,11 @@ class CoreAgent:
                 rag_latency_ms=kernel_result.ragLatencyMs,
                 llm_latency_ms=kernel_result.llmLatencyMs,
                 error_category=kernel_result.errorCategory,
+                trace_id=trace_id,
+                channel=request.channel,
+                status=kernel_result.status,
+                failed_step=kernel_result.failedStep,
+                steps=kernel_result.steps,
             ),
         )
 

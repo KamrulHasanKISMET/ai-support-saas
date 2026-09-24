@@ -5,7 +5,7 @@ import path from "path";
 
 import { requestId } from "./middleware/requestId";
 import { metricsMiddleware } from "./middleware/metrics";
-import { requireApiKey, requireAuth } from "./middleware/auth";
+import { requireApiKey, requireApiKeyOrAuth, requireAuth } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimiter";
 import { errorHandler } from "./middleware/errorHandler";
 import { captureRawBody } from "./middleware/rawBody";
@@ -18,6 +18,8 @@ import { messagesRouter } from "./modules/messages/messages.routes";
 import { channelsRouter } from "./modules/channels/channels.routes";
 import { whatsappWebhookRouter } from "./modules/channels/whatsapp.webhook";
 import { productsRouter } from "./modules/products/products.routes";
+import { categoriesRouter } from "./modules/categories/categories.routes";
+import { knowledgeRouter } from "./modules/knowledge/knowledge.routes";
 import { ordersRouter } from "./modules/orders/orders.routes";
 import { billingRouter } from "./modules/billing/billing.routes";
 import { healthRouter, readinessRouter, metricsRouter } from "./modules/health/health.routes";
@@ -41,7 +43,11 @@ export function createApp() {
   // /readiness below ("can this service currently serve requests?").
   app.use("/health", healthRouter);
   app.use("/readiness", readinessRouter);
-  app.use("/metrics", requireAuth, metricsRouter);
+  // Production Reliability workstream: unauthenticated so Prometheus
+  // can scrape it over the internal docker network (it has no JWT to
+  // present) -- see health.routes.ts and docs/RELIABILITY.md "Metrics
+  // security" for the reasoning and the production-hardening note.
+  app.use("/metrics", metricsRouter);
 
   // Minimal, dependency-free static page(s) -- e.g. /connect-whatsapp.html --
   // served directly by node-api while the real dashboard (web/, see
@@ -63,7 +69,12 @@ export function createApp() {
   // Channel-facing routes: server-to-server calls from OUR OWN channel
   // adapters (currently just the website widget). Authenticated with a
   // per-tenant x-api-key -- never a client-declared tenant id.
-  app.use("/customers", requireApiKey, customersRouter);
+  // /customers is the one exception to "one router, one auth" in this
+  // file: the SAME router also serves staff dashboard list/search/
+  // update/delete (CUSTOMER-KNOWLEDGE-RAG-API-001 phase 1), which needs
+  // JWT, not an api key a browser dashboard never holds -- see
+  // requireApiKeyOrAuth's comment in middleware/auth.ts for why.
+  app.use("/customers", requireApiKeyOrAuth, customersRouter);
   app.use(
     "/messages",
     requireApiKey,
@@ -79,6 +90,11 @@ export function createApp() {
   app.use("/channels", requireAuth, channelsRouter);
   app.use("/conversations", requireAuth, conversationsRouter);
   app.use("/products", requireAuth, productsRouter);
+  // Product categories (CUSTOMER-KNOWLEDGE-RAG-API-001 phase 2) and the
+  // Knowledge Base / RAG ingestion API (phases 3-11) are both staff/
+  // dashboard-only -- no channel adapter creates these today.
+  app.use("/product-categories", requireAuth, categoriesRouter);
+  app.use("/knowledge", requireAuth, knowledgeRouter);
   app.use("/orders", requireAuth, ordersRouter);
   app.use("/billing", requireAuth, billingRouter);
 

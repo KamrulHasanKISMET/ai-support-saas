@@ -1,0 +1,42 @@
+# Production Reliability workstream. Ships with a working route/group
+# structure but NO real notification channel wired in -- that needs
+# credentials only you have (Slack webhook, PagerDuty key, SMTP, etc).
+# Until one is configured, firing alerts are visible in Prometheus's
+# own UI (http://localhost:9090/alerts) and Alertmanager's UI
+# (http://localhost:9093), just not pushed anywhere. See
+# docs/RELIABILITY.md "Alerting" for how to fill this in.
+
+route:
+  receiver: default
+  group_by: ["alertname", "job"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match:
+        severity: critical
+      receiver: default
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    # No webhook/email/etc configured -- alerts are only visible in the
+    # Alertmanager/Prometheus UIs. Uncomment and fill in ONE of the
+    # examples below (or add your own) to actually get notified.
+
+    # slack_configs:
+    #   - api_url: "https://hooks.slack.com/services/REPLACE/ME/HERE"
+    #     channel: "#alerts"
+    #     send_resolved: true
+
+    # email_configs:
+    #   - to: "oncall@example.com"
+    #     from: "alertmanager@example.com"
+    #     smarthost: "smtp.example.com:587"
+    #     auth_username: "alertmanager@example.com"
+    #     auth_password: "REPLACE_ME"
+    #     send_resolved: true
+
+    # webhook_configs:
+    #   - url: "https://REPLACE-ME.example.com/alertmanager-webhook"
+    #     send_resolved: true

@@ -13,7 +13,18 @@ Python (FastAPI)       -> AI service: Kernel, Intent, State, Context, RAG, Memor
 PostgreSQL + pgvector  -> single source of truth
 Redis                  -> cache / queues / temp state (not persistent)
 Docker Compose         -> local orchestration
+Prometheus/Alertmanager -> metrics + alerting (optional, `--profile monitoring`)
 ```
+
+## Reliability, monitoring & backups
+
+`docker compose up` starts the same 4-service stack as before, plus a
+`pg_backup` sidecar that takes scheduled Postgres backups (WAL
+archiving + PITR-capable). `docker compose --profile monitoring up`
+additionally starts Prometheus, Alertmanager, and exporters. Both
+services expose Prometheus metrics at `GET /metrics`. See
+[`docs/RELIABILITY.md`](docs/RELIABILITY.md) for pool tuning, alerts,
+backup/restore procedures, and load testing (`loadtest/`).
 
 ## Quick start
 

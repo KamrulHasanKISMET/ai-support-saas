@@ -49,7 +49,8 @@ async def record_trace(db: AsyncSession, trace: AgentRunTrace) -> None:
                     latency_ms, cost_usd, error,
                     language_latency_ms, intent_latency_ms, context_latency_ms,
                     memory_latency_ms, rag_latency_ms, llm_latency_ms,
-                    error_category
+                    error_category,
+                    trace_id, channel, status, failed_step, steps
                 ) VALUES (
                     :agent_run_id, :request_id, :tenant_id, :customer_id,
                     :conversation_id, :message_id,
@@ -61,7 +62,8 @@ async def record_trace(db: AsyncSession, trace: AgentRunTrace) -> None:
                     :latency_ms, :cost_usd, :error,
                     :language_latency_ms, :intent_latency_ms, :context_latency_ms,
                     :memory_latency_ms, :rag_latency_ms, :llm_latency_ms,
-                    :error_category
+                    :error_category,
+                    :trace_id, :channel, :status, :failed_step, :steps
                 )
                 """
             ),
@@ -94,6 +96,11 @@ async def record_trace(db: AsyncSession, trace: AgentRunTrace) -> None:
                 "rag_latency_ms": trace.rag_latency_ms,
                 "llm_latency_ms": trace.llm_latency_ms,
                 "error_category": trace.error_category,
+                "trace_id": trace.trace_id,
+                "channel": trace.channel,
+                "status": trace.status,
+                "failed_step": trace.failed_step,
+                "steps": trace.steps,
             },
         )
         await db.commit()

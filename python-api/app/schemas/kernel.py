@@ -49,3 +49,12 @@ class KernelRunResponse(BaseModel):
     # CoreAgent's own total agent-run latency (that also includes config
     # load + trace write, measured separately in core_agent.py)
     errorCategory: str | None = None  # ErrorCategory value; set only on the fallback path
+
+    # Commercial V1 trace lifecycle (docs/OBSERVABILITY.md,
+    # db/init/008_trace_lifecycle.sql). All additive/defaulted --
+    # existing construction of KernelRunResponse elsewhere (there is
+    # none outside kernel.py today, but this keeps the same
+    # non-breaking pattern as every prior addition to this class).
+    status: str = "completed"  # 'completed' | 'partial' | 'error'
+    failedStep: str | None = None  # which lifecycle stage was in progress on failure
+    steps: list[dict] = []  # ordered [{"step", "status", "durationMs"?, "error"?, "metadata"?}]

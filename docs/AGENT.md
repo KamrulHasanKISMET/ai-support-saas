@@ -63,7 +63,7 @@ That's the entire class body. It:
    whatever metadata the caller sent. **Unchanged from before** — the
    external Node-facing contract did not change in this version.
 
-## Agent Run Trace — wired and tested (the one active capability this version adds)
+## Agent Run Trace — wired and tested
 
 **Files:** `app/trace/trace_types.py` (`AgentRunTrace` dataclass, mirrors
 the `agent_run_traces` table column-for-column), `app/trace/trace_service.py`
@@ -96,6 +96,71 @@ BY created_at DESC`.
 **Not yet captured:** `cost_usd` stays `NULL` — no per-model token
 pricing table exists yet to compute it from the token-usage numbers
 `ai_service.complete()` already logs.
+
+### Commercial V1 lifecycle hardening (this version)
+
+**Migration:** `db/init/008_trace_lifecycle.sql` — five more columns
+on the same `agent_run_traces` table, no second table, no second
+tracing system.
+
+**Correlation chain, now complete end to end:**
+```
+request_id (node-api) → trace_id → agent_run_id → tenant_id →
+customer_id → conversation_id → message_id → channel
+```
+`trace_id` is a new concept, deliberately kept distinct from
+`request_id` even though `CoreAgent.run()` sets `trace_id =
+request.requestId or str(uuid.uuid4())` — i.e. they hold the *same
+value* today. The distinction exists for when a future capability
+(e.g. a Tool call that triggers its own sub-agent-run) needs one
+`trace_id` to span several `agent_run_id`s; that consumer doesn't
+exist yet, so today this is a 1:1 mapping, not speculative machinery.
+`channel` was sitting on `AgentRequest.channel` the whole time
+(`schemas/agent.py`) but never reached the trace before this version —
+same class of gap as the per-step latency columns were before
+`007_observability.sql`.
+
+**Lifecycle visibility.** `KernelRunResponse` gained `status`
+(`'completed' | 'partial' | 'error'`), `failedStep`, and `steps` — an
+ordered list of `{"step", "status", "durationMs"?, "error"?,
+"metadata"?}` entries, one per lifecycle stage that actually ran this
+turn: `language`, `intent`, `context`, `memory`, `rag`, `tool` (only
+present when an order/status intent was recognized — see
+`docs/KERNEL.md`), `llm`, `memory_update`. This is a structured,
+queryable complement to the existing flat `*_latency_ms` columns, not
+a replacement for them — both are populated from the same
+measurements.
+
+**A previously-invisible failure mode is now visible.** Before this
+version, a RAG or Memory retrieval failure degraded gracefully (see
+`docs/RAG.md`/`docs/MEMORY.md`) but left **no trace** of having
+happened — the top-level `error` column stayed `NULL` because the
+Kernel didn't crash. `context_engine.py`'s `assemble()` now reports
+`memory_status`/`rag_status` per source; `kernel.py` reflects both into
+their own `steps` entries and downgrades the overall run `status` to
+`'partial'` when either failed. An "everything looks fine" trace and a
+"we quietly served a degraded answer" trace are no longer
+indistinguishable.
+
+**`failed_step` localization, on a genuine (non-degraded) failure:** a
+`last_step_attempted` variable is set immediately before each risky
+call in `kernel.py`, so if the Kernel's outer exception handler fires,
+`failed_step` names the exact stage that was in flight — no guessing
+from a generic 500-equivalent.
+
+**Security: no secrets in traces.** Per-step error text (a new kind of
+surface area — the *existing* top-level `error` column was already
+safe, being just a static label like `"kernel_fallback"`) is passed
+through `app/core/trace_sanitize.py`'s `safe_error_message()` before
+it ever reaches `steps` or `AgentRunTrace`. It redacts DSN-embedded
+credentials (`postgresql://user:pass@host`), `Authorization`/`Bearer`
+values, `api_key=`/`password=`-style fields, and Anthropic/OpenAI-style
+`sk-...` tokens, then truncates to 300 characters. See
+`tests/test_trace_sanitize.py` for the exact cases covered — a real bug
+here (the `Authorization`/`Bearer` patterns initially being combined
+into one alternation, which let `Authorization:` swallow just the
+word "Bearer" and leave the actual token exposed) was caught by these
+tests during this phase and fixed before release, not after.
 
 ## Sibling foundation modules (defined, tested, NOT wired into CoreAgent/Kernel)
 

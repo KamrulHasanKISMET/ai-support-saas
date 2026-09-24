@@ -200,6 +200,14 @@ database. Fixed in this phase; a regression test now pins it
 exists (unchanged from before this phase; "do not build a complete
 analytics platform yet" applies here too). Query it directly:
 
+**Extended further in a later phase** (Commercial V1 lifecycle
+hardening — `db/init/008_trace_lifecycle.sql`): `trace_id`, `channel`,
+`status`, `failed_step`, and a `steps` JSONB array complete the
+correlation chain and give per-stage status/duration/error visibility,
+including making previously-invisible RAG/Memory degradation visible
+for the first time. Full detail in `docs/AGENT.md`'s "Commercial V1
+lifecycle hardening" section and `docs/CONTEXT_ENGINE.md`.
+
 ```sql
 SELECT agent_run_id, request_id, intent, confidence, decision,
        language_latency_ms, intent_latency_ms, context_latency_ms,

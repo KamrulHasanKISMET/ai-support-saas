@@ -7,6 +7,7 @@ from app.context.context_engine import AssembledContext, context_engine
 from app.core.config import settings
 from app.core.error_types import classify_exception
 from app.core.logging import logger
+from app.core.trace_sanitize import safe_error_message
 from app.intent.intent_engine import intent_engine
 from app.intent.intent_types import IntentType
 from app.language.language_engine import language_engine
@@ -56,10 +57,16 @@ class Kernel:
     raising an unhandled exception up to Node.js/the customer.
 
     Phase 1 observability (docs/OBSERVABILITY.md): every step below is
-    individually timed (language/intent/context/llm), matching the new
+    individually timed (language/intent/context/llm), matching the
     agent_run_traces columns from db/init/007_observability.sql. This
     is timing ONLY -- none of the control flow, prompts, or error
     boundaries described above changed to add it.
+
+    Commercial V1 trace lifecycle (db/init/008_trace_lifecycle.sql):
+    additionally builds an ordered `steps` list (status + duration +
+    safe error per lifecycle stage) and an overall `status`/`failedStep`
+    -- again purely additive bookkeeping around the SAME calls above,
+    not a control-flow change. See docs/OBSERVABILITY.md.
 
     Kernel v1 is intentionally a plain application layer inside
     Python, not a separate microservice (section 21).
@@ -75,12 +82,25 @@ class Kernel:
         request_id: str | None = None,
     ) -> KernelRunResponse:
         kernel_started_at = time.perf_counter()
+        steps: list[dict] = []
+        last_step_attempted = "language"
+
+        def _step(name, status, duration_ms=None, error=None, metadata=None):
+            entry: dict = {"step": name, "status": status}
+            if duration_ms is not None:
+                entry["durationMs"] = duration_ms
+            if error:
+                entry["error"] = error
+            if metadata:
+                entry["metadata"] = metadata
+            steps.append(entry)
 
         try:
             # 1. UNDERSTAND LANGUAGE
             language_started_at = time.perf_counter()
             language_result = await language_engine.understand(message)
             language_latency_ms = _elapsed_ms(language_started_at)
+            _step("language", "ok", language_latency_ms)
             logger.info(
                 "Kernel language request_id=%s tenant=%s conv=%s detected=%s reply=%s confidence=%.2f latency_ms=%d",
                 request_id,
@@ -110,12 +130,14 @@ class Kernel:
             )
 
             # 2. UNDERSTAND INTENT
+            last_step_attempted = "intent"
             intent_started_at = time.perf_counter()
             intent_result = await intent_engine.classify(
                 language_result.normalized_message,
                 entity_hints=language_result.entity_spans,
             )
             intent_latency_ms = _elapsed_ms(intent_started_at)
+            _step("intent", "ok", intent_latency_ms)
             logger.info(
                 "Kernel intent request_id=%s tenant=%s conv=%s intent=%s confidence=%.2f latency_ms=%d",
                 request_id,
@@ -127,6 +149,7 @@ class Kernel:
             )
 
             # 3. STATE
+            last_step_attempted = "state"
             state = await state_engine.update_state(
                 db, tenant_id, conversation_id, intent_result
             )
@@ -135,14 +158,18 @@ class Kernel:
                 f"\n\nReply in this language: {language_result.reply_language}."
             )
 
+            run_status = "completed"
+
             # 4. DECIDE (confidence gate, section 18)
             if intent_result.confidence < settings.intent_confidence_min:
+                last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
                 reply = await ai_service.complete(
                     message,
                     system=CLARIFICATION_SYSTEM_PROMPT + reply_language_instruction,
                 )
                 llm_latency_ms = _elapsed_ms(llm_started_at)
+                _step("llm", "ok", llm_latency_ms, metadata={"path": "clarify"})
                 response = KernelRunResponse(
                     reply=reply,
                     intent=intent_result.intent.value,
@@ -158,16 +185,19 @@ class Kernel:
                     languageLatencyMs=language_latency_ms,
                     intentLatencyMs=intent_latency_ms,
                     llmLatencyMs=llm_latency_ms,
+                    status=run_status,
                 )
             else:
                 # 5. RETRIEVE / CONTEXT -- isolated failure boundary. RAG
-                # failures are now handled INSIDE context_engine.assemble()
-                # itself (memories are never discarded just because
-                # knowledge search fails). This try/except remains as a
-                # safety net for anything else that could go wrong here
-                # (e.g. a Memory/DB error) -- if it still fails, fall back
-                # to an empty context entirely rather than failing the
-                # whole request.
+                # and Memory failures are now handled INSIDE
+                # context_engine.assemble() itself (see its own
+                # docstring) -- this try/except remains as a safety net
+                # for anything else that could go wrong at this call
+                # boundary (e.g. an unexpected error in budgeting/
+                # validation) -- if it still fails, fall back to an
+                # empty context entirely rather than failing the whole
+                # request.
+                last_step_attempted = "context"
                 context_started_at = time.perf_counter()
                 try:
                     context = await context_engine.assemble(
@@ -178,7 +208,18 @@ class Kernel:
                         state=state,
                         retrieval_query=language_result.normalized_message,
                     )
-                except Exception:
+                    context_latency_ms = _elapsed_ms(context_started_at)
+                    _step(
+                        "context",
+                        "ok",
+                        context_latency_ms,
+                        metadata={
+                            "budget": context.budget_info,
+                            "compressionApplied": context.compression_applied,
+                            "validationErrors": context.validation_errors,
+                        },
+                    )
+                except Exception as exc:
                     logger.error(
                         "Context assembly failed request_id=%s tenant=%s conv=%s -- "
                         "continuing with empty context",
@@ -188,7 +229,28 @@ class Kernel:
                         exc_info=True,
                     )
                     context = AssembledContext(question=message, state=state)
-                context_latency_ms = _elapsed_ms(context_started_at)
+                    context_latency_ms = _elapsed_ms(context_started_at)
+                    _step("context", "error", context_latency_ms, error=safe_error_message(exc))
+                    run_status = "partial"
+
+                # Memory/RAG sub-steps -- status comes from
+                # ContextEngine (see its docstring); a "error" here
+                # degrades the run to "partial", never to a hard
+                # failure, since an answer was still produced.
+                _step(
+                    "memory",
+                    context.memory_status,
+                    context.memory_latency_ms,
+                    error=context.memory_error,
+                )
+                _step(
+                    "rag",
+                    context.rag_status,
+                    context.rag_latency_ms,
+                    error=context.rag_error,
+                )
+                if context.memory_status == "error" or context.rag_status == "error":
+                    run_status = "partial" if run_status == "completed" else run_status
 
                 # 6. REASON
                 tools_called: list[str] = []
@@ -201,13 +263,23 @@ class Kernel:
                         "falling back to a grounded LLM answer.",
                         intent_result.intent.value,
                     )
+                    _step(
+                        "tool",
+                        "skipped",
+                        metadata={
+                            "reason": "tool_engine_not_implemented",
+                            "intent": intent_result.intent.value,
+                        },
+                    )
 
+                last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
                 reply = await ai_service.complete(
                     context.to_prompt_block(),
                     system=RESPONSE_SYSTEM_PROMPT + reply_language_instruction,
                 )
                 llm_latency_ms = _elapsed_ms(llm_started_at)
+                _step("llm", "ok", llm_latency_ms)
 
                 response = KernelRunResponse(
                     reply=reply,
@@ -227,16 +299,29 @@ class Kernel:
                     memoryLatencyMs=context.memory_latency_ms,
                     ragLatencyMs=context.rag_latency_ms,
                     llmLatencyMs=llm_latency_ms,
+                    status=run_status,
                 )
 
             # 7. LEARN -- isolated failure boundary. Runs after the reply
             # is already built, and its own failure never affects what's
-            # returned to the customer.
+            # returned to the customer or downgrades run_status -- a
+            # background memory-write hiccup is not the same thing as
+            # failing to serve the customer a good answer.
+            memory_update_started_at = time.perf_counter()
             try:
                 await memory_service.extract_and_store(
                     db, tenant_id, customer_id, message
                 )
-            except Exception:
+                memory_update_latency_ms = _elapsed_ms(memory_update_started_at)
+                _step("memory_update", "ok", memory_update_latency_ms)
+            except Exception as exc:
+                memory_update_latency_ms = _elapsed_ms(memory_update_started_at)
+                _step(
+                    "memory_update",
+                    "error",
+                    memory_update_latency_ms,
+                    error=safe_error_message(exc),
+                )
                 logger.error(
                     "Memory extraction failed request_id=%s tenant=%s customer=%s",
                     request_id,
@@ -246,12 +331,15 @@ class Kernel:
                 )
 
             response.kernelLatencyMs = _elapsed_ms(kernel_started_at)
+            response.steps = steps
+            response.status = run_status
             logger.info(
-                "Kernel run completed request_id=%s tenant=%s conv=%s latency_ms=%d",
+                "Kernel run completed request_id=%s tenant=%s conv=%s latency_ms=%d status=%s",
                 request_id,
                 tenant_id,
                 conversation_id,
                 response.kernelLatencyMs,
+                run_status,
             )
             return response
 
@@ -260,13 +348,21 @@ class Kernel:
             error_category = classify_exception(exc)
             logger.error(
                 "Kernel run FAILED request_id=%s tenant=%s conv=%s latency_ms=%d "
-                "error_category=%s -- returning fallback reply",
+                "error_category=%s failed_step=%s -- returning fallback reply",
                 request_id,
                 tenant_id,
                 conversation_id,
                 kernel_latency_ms,
                 error_category.value,
+                last_step_attempted,
                 exc_info=True,
+            )
+            steps.append(
+                {
+                    "step": last_step_attempted,
+                    "status": "error",
+                    "error": safe_error_message(exc),
+                }
             )
             return KernelRunResponse(
                 reply=FALLBACK_REPLY,
@@ -278,6 +374,9 @@ class Kernel:
                 errorOccurred=True,
                 kernelLatencyMs=kernel_latency_ms,
                 errorCategory=error_category.value,
+                status="error",
+                failedStep=last_step_attempted,
+                steps=steps,
             )
 
 

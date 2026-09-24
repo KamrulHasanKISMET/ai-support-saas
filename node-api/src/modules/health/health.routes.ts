@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { checkDatabaseHealth } from "../../config/database";
 import { checkRedisHealth } from "../../config/redis";
-import { getInfraSnapshot, getRequestMetricsSnapshot } from "../../utils/metrics";
+import { getInfraSnapshot } from "../../utils/metrics";
+import { metricsHandler } from "../../middleware/metrics";
 
 /**
  * GET /health — "is the process alive?"
@@ -49,23 +50,18 @@ readinessRouter.get("/", async (_req, res) => {
 });
 
 /**
- * GET /metrics — plain JSON snapshot of the in-memory request
- * counters. NOT Prometheus/OpenMetrics format (explicitly out of
- * scope for this phase).
+ * GET /metrics — Prometheus text exposition format (Production
+ * Reliability workstream), scraped by monitoring/prometheus.yml.
  *
- * Mounted behind requireAuth (JWT) in app.ts — unlike /health and
- * /readiness, nothing external (Docker healthcheck, a load balancer)
- * needs to poll this; request-volume/error-rate data is more
- * appropriate for staff-only access. python-api protects its
- * equivalent with x-internal-secret (its own established "every route
- * but /health" rule); node-api has no such blanket rule, so JWT — the
- * credential a legitimate internal/dashboard caller already has — is
- * the more consistent choice here, not a new secret scheme.
+ * Previously a plain JSON snapshot of the in-memory request counters,
+ * mounted behind requireAuth (JWT). Prometheus has no way to present a
+ * JWT on a scrape, so this is now unauthenticated in app.ts, matching
+ * python-api's equivalent — see docs/RELIABILITY.md "Metrics security"
+ * for why that's safe (internal docker network only, not published
+ * publicly) and what a production deployment should add in front of
+ * it (reverse-proxy allowlist). The underlying JSON counters
+ * (utils/metrics.ts) aren't gone -- they still back the `process`
+ * field on /health and /readiness above.
  */
 export const metricsRouter = Router();
-metricsRouter.get("/", (_req, res) => {
-  res.json({
-    requests: getRequestMetricsSnapshot(),
-    process: getInfraSnapshot(),
-  });
-});
+metricsRouter.get("/", metricsHandler);

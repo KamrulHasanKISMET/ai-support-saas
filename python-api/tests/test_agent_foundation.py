@@ -253,6 +253,64 @@ class TestAgentRunTrace(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(params["llm_latency_ms"], 900)
         self.assertEqual(params["error_category"], "llm_error")
 
+    async def test_record_trace_includes_commercial_v1_lifecycle_fields(self):
+        """
+        Regression test for the same class of bug as the one above:
+        db/init/008_trace_lifecycle.sql added trace_id, channel,
+        status, failed_step, and steps to agent_run_traces, and
+        Kernel/CoreAgent compute all of them -- pins that they reach
+        the bound query parameters too.
+        """
+        from app.trace.trace_service import record_trace
+        from app.trace.trace_types import AgentRunTrace
+        import uuid
+
+        session = FakeSession([None])
+        steps = [
+            {"step": "language", "status": "ok", "durationMs": 120},
+            {"step": "rag", "status": "error", "error": "OpenAIError: [REDACTED]"},
+        ]
+        trace = AgentRunTrace(
+            agent_run_id=uuid.uuid4(),
+            tenant_id=1,
+            customer_id=2,
+            conversation_id=3,
+            trace_id="req-abc-123",
+            channel="whatsapp",
+            status="partial",
+            failed_step="rag",
+            steps=steps,
+        )
+
+        await record_trace(session, trace)
+
+        _, params = session.executed_queries[0]
+        self.assertEqual(params["trace_id"], "req-abc-123")
+        self.assertEqual(params["channel"], "whatsapp")
+        self.assertEqual(params["status"], "partial")
+        self.assertEqual(params["failed_step"], "rag")
+        self.assertEqual(params["steps"], steps)
+
+    async def test_record_trace_defaults_status_to_completed(self):
+        """A trace built with no explicit status/steps (the common
+        case -- a fully healthy run) must still default sensibly
+        rather than requiring every caller to pass them."""
+        from app.trace.trace_service import record_trace
+        from app.trace.trace_types import AgentRunTrace
+        import uuid
+
+        session = FakeSession([None])
+        trace = AgentRunTrace(agent_run_id=uuid.uuid4(), tenant_id=1, customer_id=2, conversation_id=3)
+
+        await record_trace(session, trace)
+
+        _, params = session.executed_queries[0]
+        self.assertEqual(params["status"], "completed")
+        self.assertIsNone(params["failed_step"])
+        self.assertEqual(params["steps"], [])
+        self.assertIsNone(params["trace_id"])
+        self.assertIsNone(params["channel"])
+
     async def test_record_trace_failure_is_isolated_never_raises(self):
         from app.trace.trace_service import record_trace
         from app.trace.trace_types import AgentRunTrace
