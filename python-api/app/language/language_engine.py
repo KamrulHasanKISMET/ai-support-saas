@@ -69,9 +69,10 @@ class LanguageEngine:
     trip -- no new call was added for the new fields.
     """
 
-    async def understand(self, message: str) -> LanguageResult:
+    async def understand(self, message: str, *, usage_out: dict[str, int | None] | None = None) -> LanguageResult:
         raw = await ai_service.complete_json(
-            LANGUAGE_UNDERSTANDING_PROMPT.format(message=message)
+            LANGUAGE_UNDERSTANDING_PROMPT.format(message=message),
+            usage_out=usage_out,
         )
 
         detected = raw.get("detectedLanguage") or "other"

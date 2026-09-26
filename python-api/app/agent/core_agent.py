@@ -141,6 +141,8 @@ class CoreAgent:
                 memory_latency_ms=kernel_result.memoryLatencyMs,
                 rag_latency_ms=kernel_result.ragLatencyMs,
                 llm_latency_ms=kernel_result.llmLatencyMs,
+                input_tokens=kernel_result.inputTokens,
+                output_tokens=kernel_result.outputTokens,
                 error_category=kernel_result.errorCategory,
                 trace_id=trace_id,
                 channel=request.channel,

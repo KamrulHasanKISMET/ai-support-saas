@@ -45,6 +45,8 @@ class KernelRunResponse(BaseModel):
     memoryLatencyMs: int | None = None  # memory RETRIEVAL (read), not extraction/write
     ragLatencyMs: int | None = None
     llmLatencyMs: int | None = None  # the final reply-generating LLM call only
+    inputTokens: int | None = None
+    outputTokens: int | None = None
     kernelLatencyMs: int | None = None  # total time inside Kernel.run() -- distinct from
     # CoreAgent's own total agent-run latency (that also includes config
     # load + trace write, measured separately in core_agent.py)

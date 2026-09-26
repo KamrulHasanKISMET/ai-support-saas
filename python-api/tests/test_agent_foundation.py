@@ -252,6 +252,30 @@ class TestAgentRunTrace(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(params["rag_latency_ms"], 60)
         self.assertEqual(params["llm_latency_ms"], 900)
         self.assertEqual(params["error_category"], "llm_error")
+    async def test_record_trace_includes_token_usage(self):
+        """
+        Regression test: token usage captured by Kernel must reach
+        the agent_run_traces INSERT parameters.
+        """
+        from app.trace.trace_service import record_trace
+        from app.trace.trace_types import AgentRunTrace
+        import uuid
+
+        session = FakeSession([None])
+        trace = AgentRunTrace(
+            agent_run_id=uuid.uuid4(),
+            tenant_id=1,
+            customer_id=2,
+            conversation_id=uuid.uuid4(),
+            input_tokens=1500,
+            output_tokens=350,
+        )
+
+        await record_trace(session, trace)
+
+        _, params = session.executed_queries[0]
+        self.assertEqual(params["input_tokens"], 1500)
+        self.assertEqual(params["output_tokens"], 350)
 
     async def test_record_trace_includes_commercial_v1_lifecycle_fields(self):
         """

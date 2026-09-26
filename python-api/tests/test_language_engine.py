@@ -64,6 +64,32 @@ class TestLanguageEngineBangla(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.normalized_message, "When will I receive my order?")
         self.assertFalse(result.is_ambiguous)
         self.assertEqual(result.entity_spans, [])
+    async def test_usage_out_is_forwarded_to_ai_service(self):
+        message = "আমার অর্ডারটা কবে পাবো?"
+        usage_out = {}
+
+        with mock_llm_json(
+            {
+                "detectedLanguage": "bn",
+                "replyLanguage": "bn",
+                "normalizedMessage": "When will I receive my order?",
+                "confidence": 0.95,
+                "communicationStyle": "neutral",
+                "isAmbiguous": False,
+                "ambiguityReason": None,
+                "entitySpans": [],
+            }
+        ) as mocked_complete_json:
+            await language_engine.understand(
+                message,
+                usage_out=usage_out,
+            )
+
+        mocked_complete_json.assert_awaited_once()
+        self.assertIs(
+            mocked_complete_json.await_args.kwargs["usage_out"],
+            usage_out,
+        )
 
 
 class TestLanguageEngineBanglish(unittest.IsolatedAsyncioTestCase):
@@ -329,7 +355,26 @@ class TestIntentEngineEntityHints(unittest.IsolatedAsyncioTestCase):
         # hint "junk-span" does not leak into it just because it was a hint
         self.assertEqual(result.entities, {"product": "Nike Air Max", "size": "42"})
         self.assertNotIn("junk-span", result.entities.values())
+    async def test_usage_out_is_forwarded_to_ai_service(self):
+        usage_out = {}
 
+        with mock_intent_llm_json(
+            {
+                "intent": "PRICE_INQUIRY",
+                "confidence": 0.9,
+                "entities": {},
+            }
+        ) as mocked_complete_json:
+            await intent_engine.classify(
+                "price of Nike Air Max 42?",
+                usage_out=usage_out,
+            )
+
+        mocked_complete_json.assert_awaited_once()
+        self.assertIs(
+            mocked_complete_json.await_args.kwargs["usage_out"],
+            usage_out,
+        )
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

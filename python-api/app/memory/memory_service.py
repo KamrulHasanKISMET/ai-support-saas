@@ -35,9 +35,12 @@ class MemoryService:
         tenant_id: int,
         customer_id: int,
         message: str,
+        *,
+        usage_out: dict[str, int | None] | None = None,
     ) -> list[dict]:
         raw = await ai_service.complete_json(
-            MEMORY_EXTRACTION_PROMPT.format(message=message)
+            MEMORY_EXTRACTION_PROMPT.format(message=message),
+            usage_out=usage_out,
         )
         proposals = raw.get("memories", []) or []
 
