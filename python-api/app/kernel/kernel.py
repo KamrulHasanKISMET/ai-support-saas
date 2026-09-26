@@ -35,6 +35,18 @@ FALLBACK_REPLY = (
 def _elapsed_ms(started_at: float) -> int:
     return int((time.perf_counter() - started_at) * 1000)
 
+def _accumulate_token_usage(
+    totals: dict[str, int | None], usage: dict[str, int | None] | None
+) -> None:
+    if not usage:
+        return
+    for key in ("input_tokens", "output_tokens"):
+        value = usage.get(key)
+        if value is None:
+            continue
+        current = totals.get(key)
+        totals[key] = value if current is None else current + value
+
 
 class Kernel:
     """
@@ -85,6 +97,11 @@ class Kernel:
         steps: list[dict] = []
         last_step_attempted = "language"
 
+        _token_totals: dict[str, int | None] = {"input_tokens": None, "output_tokens": None}
+        def _accumulate_usage(usage: dict[str, int | None] | None) -> None:
+           _accumulate_token_usage(_token_totals, usage)
+
+
         def _step(name, status, duration_ms=None, error=None, metadata=None):
             entry: dict = {"step": name, "status": status}
             if duration_ms is not None:
@@ -98,7 +115,16 @@ class Kernel:
         try:
             # 1. UNDERSTAND LANGUAGE
             language_started_at = time.perf_counter()
-            language_result = await language_engine.understand(message)
+
+            language_usage: dict[str, int | None] = {}
+
+            language_result = await language_engine.understand(
+                message,
+                usage_out=language_usage,
+            )
+
+            _accumulate_usage(language_usage)
+
             language_latency_ms = _elapsed_ms(language_started_at)
             _step("language", "ok", language_latency_ms)
             logger.info(
@@ -132,10 +158,17 @@ class Kernel:
             # 2. UNDERSTAND INTENT
             last_step_attempted = "intent"
             intent_started_at = time.perf_counter()
+
+            intent_usage: dict[str, int | None] = {}
+
             intent_result = await intent_engine.classify(
                 language_result.normalized_message,
                 entity_hints=language_result.entity_spans,
+                usage_out=intent_usage,
             )
+
+            _accumulate_usage(intent_usage)
+
             intent_latency_ms = _elapsed_ms(intent_started_at)
             _step("intent", "ok", intent_latency_ms)
             logger.info(
@@ -164,12 +197,20 @@ class Kernel:
             if intent_result.confidence < settings.intent_confidence_min:
                 last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
+
+                clarification_usage: dict[str, int | None] = {}
+
                 reply = await ai_service.complete(
                     message,
                     system=CLARIFICATION_SYSTEM_PROMPT + reply_language_instruction,
+                    usage_out=clarification_usage,
                 )
+
+                _accumulate_usage(clarification_usage)
+
                 llm_latency_ms = _elapsed_ms(llm_started_at)
                 _step("llm", "ok", llm_latency_ms, metadata={"path": "clarify"})
+
                 response = KernelRunResponse(
                     reply=reply,
                     intent=intent_result.intent.value,
@@ -185,6 +226,8 @@ class Kernel:
                     languageLatencyMs=language_latency_ms,
                     intentLatencyMs=intent_latency_ms,
                     llmLatencyMs=llm_latency_ms,
+                    inputTokens=_token_totals["input_tokens"],
+                    outputTokens=_token_totals["output_tokens"],
                     status=run_status,
                 )
             else:
@@ -274,10 +317,16 @@ class Kernel:
 
                 last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
+                normal_reply_usage: dict[str, int | None] = {}
+
                 reply = await ai_service.complete(
                     context.to_prompt_block(),
                     system=RESPONSE_SYSTEM_PROMPT + reply_language_instruction,
+                    usage_out=normal_reply_usage,
                 )
+
+                _accumulate_usage(normal_reply_usage)
+
                 llm_latency_ms = _elapsed_ms(llm_started_at)
                 _step("llm", "ok", llm_latency_ms)
 
@@ -299,19 +348,32 @@ class Kernel:
                     memoryLatencyMs=context.memory_latency_ms,
                     ragLatencyMs=context.rag_latency_ms,
                     llmLatencyMs=llm_latency_ms,
+                    inputTokens=_token_totals["input_tokens"],
+                    outputTokens=_token_totals["output_tokens"],
                     status=run_status,
                 )
-
             # 7. LEARN -- isolated failure boundary. Runs after the reply
             # is already built, and its own failure never affects what's
             # returned to the customer or downgrades run_status -- a
             # background memory-write hiccup is not the same thing as
             # failing to serve the customer a good answer.
+
+
             memory_update_started_at = time.perf_counter()
+
             try:
+                memory_usage: dict[str, int | None] = {}
+
                 await memory_service.extract_and_store(
-                    db, tenant_id, customer_id, message
+                    db,
+                    tenant_id,
+                    customer_id,
+                    message,
+                    usage_out=memory_usage,
                 )
+
+                _accumulate_usage(memory_usage)
+
                 memory_update_latency_ms = _elapsed_ms(memory_update_started_at)
                 _step("memory_update", "ok", memory_update_latency_ms)
             except Exception as exc:
@@ -329,6 +391,9 @@ class Kernel:
                     customer_id,
                     exc_info=True,
                 )
+
+            response.inputTokens = _token_totals["input_tokens"]
+            response.outputTokens = _token_totals["output_tokens"]
 
             response.kernelLatencyMs = _elapsed_ms(kernel_started_at)
             response.steps = steps
@@ -374,6 +439,8 @@ class Kernel:
                 errorOccurred=True,
                 kernelLatencyMs=kernel_latency_ms,
                 errorCategory=error_category.value,
+                inputTokens=_token_totals["input_tokens"],
+                outputTokens=_token_totals["output_tokens"],
                 status="error",
                 failedStep=last_step_attempted,
                 steps=steps,

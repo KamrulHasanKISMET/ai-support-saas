@@ -55,7 +55,8 @@ class AgentRunTrace:
     rag_latency_ms: int | None = None
     llm_latency_ms: int | None = None
     error_category: str | None = None  # ErrorCategory value; see app/core/error_types.py
-
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     # Commercial V1 trace lifecycle (db/init/008_trace_lifecycle.sql).
     # trace_id completes the correlation chain: request_id -> trace_id
     # -> agent_run_id -> tenant_id -> customer_id -> conversation_id ->

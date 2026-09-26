@@ -34,7 +34,7 @@ class IntentEngine:
     """
 
     async def classify(
-        self, message: str, entity_hints: list[str] | None = None
+        self, message: str, entity_hints: list[str] | None = None, *, usage_out: dict[str, int | None] | None = None
     ) -> IntentResult:
         intents = ", ".join(i.value for i in IntentType)
         entity_hint_block = (
@@ -44,7 +44,7 @@ class IntentEngine:
             intents=intents, entity_hint_block=entity_hint_block, message=message
         )
 
-        raw = await ai_service.complete_json(prompt)
+        raw = await ai_service.complete_json(prompt, usage_out=usage_out)
 
         try:
             intent = IntentType(raw.get("intent", IntentType.GENERAL_QUESTION.value))
