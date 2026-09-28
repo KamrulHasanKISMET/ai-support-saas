@@ -62,4 +62,9 @@ class LanguageResult:
     communication_style: str = "neutral"
     is_ambiguous: bool = False
     ambiguity_reason: str | None = None
-    entity_spans: list[str] = field(default_factory=list)
+    entity_spans: list[str] = field(default_factory=list) 
+    script: str = "und"
+    is_transliterated: bool = False
+    transliterated_from: str | None = None
+    code_mixing: str = "none"
+    language: str = "und"
