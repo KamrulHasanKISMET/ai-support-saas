@@ -36,6 +36,18 @@ def _elapsed_ms(started_at: float) -> int:
     return int((time.perf_counter() - started_at) * 1000)
 
 
+def _accumulate_token_usage(
+    totals: dict[str, int | None], usage: dict[str, int | None] | None
+) -> None:
+    if not usage:
+        return
+    for key in ("input_tokens", "output_tokens"):
+        value = usage.get(key)
+        if value is None:
+            continue
+        current = totals.get(key)
+        totals[key] = value if current is None else current + value
+
 class Kernel:
     """
     The reusable orchestration layer (architecture doc sections 21-23).
@@ -84,6 +96,15 @@ class Kernel:
         kernel_started_at = time.perf_counter()
         steps: list[dict] = []
         last_step_attempted = "language"
+        _token_totals: dict[str, int | None] = {
+            "input_tokens": None,
+            "output_tokens": None,
+        }
+
+        def _accumulate_usage(
+            usage: dict[str, int | None] | None,
+        ) -> None:
+            _accumulate_token_usage(_token_totals, usage)
 
         def _step(name, status, duration_ms=None, error=None, metadata=None):
             entry: dict = {"step": name, "status": status}
@@ -98,7 +119,12 @@ class Kernel:
         try:
             # 1. UNDERSTAND LANGUAGE
             language_started_at = time.perf_counter()
-            language_result = await language_engine.understand(message)
+            language_usage: dict[str, int | None] = {}
+            language_result = await language_engine.understand(
+              message,
+              usage_out=language_usage,
+            )
+            _accumulate_usage(language_usage)
             language_latency_ms = _elapsed_ms(language_started_at)
             _step("language", "ok", language_latency_ms)
             logger.info(
@@ -130,13 +156,18 @@ class Kernel:
             )
 
             # 2. UNDERSTAND INTENT
+            # 2. UNDERSTAND INTENT
             last_step_attempted = "intent"
             intent_started_at = time.perf_counter()
+            intent_usage: dict[str, int | None] = {}
             intent_result = await intent_engine.classify(
                 language_result.normalized_message,
                 entity_hints=language_result.entity_spans,
+                usage_out=intent_usage,
             )
+            _accumulate_usage(intent_usage)
             intent_latency_ms = _elapsed_ms(intent_started_at)
+
             _step("intent", "ok", intent_latency_ms)
             logger.info(
                 "Kernel intent request_id=%s tenant=%s conv=%s intent=%s confidence=%.2f latency_ms=%d",
@@ -164,15 +195,21 @@ class Kernel:
             if intent_result.confidence < settings.intent_confidence_min:
                 last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
+                clarification_usage: dict[str, int | None] = {}
                 reply = await ai_service.complete(
                     message,
                     system=CLARIFICATION_SYSTEM_PROMPT + reply_language_instruction,
+                    usage_out=clarification_usage,
                 )
+                _accumulate_usage(clarification_usage)
+
                 llm_latency_ms = _elapsed_ms(llm_started_at)
                 _step("llm", "ok", llm_latency_ms, metadata={"path": "clarify"})
                 response = KernelRunResponse(
                     reply=reply,
                     intent=intent_result.intent.value,
+                    inputTokens=_token_totals["input_tokens"],
+                    outputTokens=_token_totals["output_tokens"],
                     confidence=intent_result.confidence,
                     state=state,
                     toolsCalled=[],
@@ -274,10 +311,13 @@ class Kernel:
 
                 last_step_attempted = "llm"
                 llm_started_at = time.perf_counter()
+                normal_reply_usage: dict[str, int | None] = {}
                 reply = await ai_service.complete(
                     context.to_prompt_block(),
                     system=RESPONSE_SYSTEM_PROMPT + reply_language_instruction,
+                    usage_out=normal_reply_usage,
                 )
+                _accumulate_usage(normal_reply_usage)
                 llm_latency_ms = _elapsed_ms(llm_started_at)
                 _step("llm", "ok", llm_latency_ms)
 
@@ -309,9 +349,15 @@ class Kernel:
             # failing to serve the customer a good answer.
             memory_update_started_at = time.perf_counter()
             try:
+                memory_usage: dict[str, int | None] = {}
                 await memory_service.extract_and_store(
-                    db, tenant_id, customer_id, message
+                    db,
+                    tenant_id,
+                    customer_id,
+                    message,
+                    usage_out=memory_usage,
                 )
+                _accumulate_usage(memory_usage)
                 memory_update_latency_ms = _elapsed_ms(memory_update_started_at)
                 _step("memory_update", "ok", memory_update_latency_ms)
             except Exception as exc:
@@ -331,6 +377,8 @@ class Kernel:
                 )
 
             response.kernelLatencyMs = _elapsed_ms(kernel_started_at)
+            response.inputTokens = _token_totals["input_tokens"]
+            response.outputTokens = _token_totals["output_tokens"]
             response.steps = steps
             response.status = run_status
             logger.info(
@@ -355,6 +403,8 @@ class Kernel:
                 kernel_latency_ms,
                 error_category.value,
                 last_step_attempted,
+                inputTokens=_token_totals["input_tokens"],
+                outputTokens=_token_totals["output_tokens"],
                 exc_info=True,
             )
             steps.append(

@@ -46,6 +46,8 @@ class KernelRunResponse(BaseModel):
     ragLatencyMs: int | None = None
     llmLatencyMs: int | None = None  # the final reply-generating LLM call only
     kernelLatencyMs: int | None = None  # total time inside Kernel.run() -- distinct from
+    inputTokens: int | None = None
+    outputTokens: int | None = None
     # CoreAgent's own total agent-run latency (that also includes config
     # load + trace write, measured separately in core_agent.py)
     errorCategory: str | None = None  # ErrorCategory value; set only on the fallback path

@@ -54,6 +54,8 @@ class AgentRunTrace:
     memory_latency_ms: int | None = None
     rag_latency_ms: int | None = None
     llm_latency_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
     error_category: str | None = None  # ErrorCategory value; see app/core/error_types.py
 
     # Commercial V1 trace lifecycle (db/init/008_trace_lifecycle.sql).
