@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import ai, health, knowledge, memory, metrics, rag, readiness
+from app.api.routes import ai, health, knowledge, memory, metrics, rag, readiness,understanding
 from app.core.logging import configure_logging
 from app.core.request_middleware import RequestMetricsMiddleware
 from app.core.metrics_middleware import MetricsMiddleware
@@ -36,3 +36,4 @@ app.include_router(ai.router)
 app.include_router(rag.router)
 app.include_router(memory.router)
 app.include_router(knowledge.router)
+app.include_router(understanding.router)
