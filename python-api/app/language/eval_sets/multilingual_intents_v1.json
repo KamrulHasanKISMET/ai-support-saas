@@ -1,0 +1,1178 @@
+{
+  "name": "multilingual_intents_v1",
+  "purpose": "Held-out multilingual phrasings for the §5.5 generalization test (docs/GENERAL_LANGUAGE_BRAIN.md). Same goal expressed across languages/scripts; clusters must NOT be built from these.",
+  "reviewed_by_native_speakers": false,
+  "note": "Drafted by an AI assistant; NOT yet reviewed by native speakers. Romanized (-latn) forms use informal spellings on purpose. Have each language reviewed before treating a low score as a model failure rather than a dataset error.",
+  "cases": [
+    {
+      "id": "damaged_received.ar",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "المنتج الذي استلمته تالف.",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.ar-latn",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "al-muntaj alladhi istalamtuhu talif.",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "damaged_received.bn",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "আমি যে পণ্যটা পেয়েছি সেটা ভাঙা।",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.bn-latn",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "ami je product peyechi seta bhanga.",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "damaged_received.en",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "The product I received is damaged.",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.es",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "El producto que recibí está dañado.",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.hi",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "मुझे जो सामान मिला वह टूटा हुआ है।",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.hi-latn",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "mujhe jo saaman mila woh toota hua hai.",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "damaged_received.ko",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "받은 상품이 파손됐어요.",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.ru",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "Товар, который я получил, повреждён.",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.th",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "สินค้าที่ฉันได้รับเสียหาย",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.tr",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "Aldığım ürün hasarlı.",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "damaged_received.zh",
+      "concept_id": "damaged_received",
+      "intent": "COMPLAINT",
+      "text": "我收到的商品是坏的。",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.ar",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "أريد طلب هذا الآن.",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.ar-latn",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "bidi atzlob hada halla2.",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "place_order_now.bn",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "আমি এটা এখনই অর্ডার করতে চাই।",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.bn-latn",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "ami ekhoni order korte chai.",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "place_order_now.en",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "I want to order this right now.",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.es",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "Quiero hacer un pedido ahora mismo.",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.hi",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "मैं अभी यह ऑर्डर करना चाहता हूँ।",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.hi-latn",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "mujhe abhi yeh order karna hai.",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "place_order_now.ko",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "지금 바로 주문하고 싶어요.",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.ru",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "Хочу сделать заказ прямо сейчас.",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.th",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "ฉันต้องการสั่งซื้อสินค้านี้ตอนนี้เลย",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.tr",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "Şu an sipariş vermek istiyorum.",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "place_order_now.zh",
+      "concept_id": "place_order_now",
+      "intent": "CREATE_ORDER",
+      "text": "我现在要下单。",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.ar",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "كم يوم يستغرق التوصيل؟",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.ar-latn",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "kam yom yastaghriq al-tawseel?",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "delivery_days.bn",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "ডেলিভারি হতে কত দিন লাগবে?",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.bn-latn",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "delivery hote koto din lagbe?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "delivery_days.en",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "How many days will delivery take?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.es",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "¿Cuántos días tarda el envío?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.hi",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "डिलीवरी में कितने दिन लगेंगे?",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.hi-latn",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "delivery mein kitne din lagenge?",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "delivery_days.ko",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "배송은 며칠 걸리나요?",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.ru",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "Сколько дней займёт доставка?",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.th",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "การจัดส่งใช้เวลากี่วัน",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.tr",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "Teslimat kaç gün sürer?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "delivery_days.zh",
+      "concept_id": "delivery_days",
+      "intent": "DELIVERY_INFO",
+      "text": "送货需要几天？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.ar",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "عندي سؤال بخصوص متجركم.",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.ar-latn",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "3indi su2al bi khusos matkhazkum.",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "general_inquiry.bn",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "আপনাদের সম্পর্কে একটা জিজ্ঞাসা ছিল।",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.bn-latn",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "apnader shopna niye ekta jiggesh chilo.",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "general_inquiry.en",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "I have a question about your store.",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.es",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "Tengo una pregunta sobre su tienda.",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.hi",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "आपकी दुकान के बारे में एक सवाल था।",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.hi-latn",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "aapki shop ke baare mein kuch poochna tha.",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "general_inquiry.ko",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "가게에 대해 궁금한 게 있어요.",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.ru",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "У меня есть вопрос о вашем магазине.",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.th",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "ฉันมีคำถามเกี่ยวกับร้านค้าของคุณ",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.tr",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "Mağazanız hakkında bir sorum var.",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "general_inquiry.zh",
+      "concept_id": "general_inquiry",
+      "intent": "GENERAL_QUESTION",
+      "text": "我有个关于你们商店的问题。",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.ar",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "هل يمكنك خفض السعر قليلاً؟",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.ar-latn",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "mumkin tkhafef al-se3r shwayye?",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_negotiate.bn",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "একটু কম দামে দিতে পারবেন?",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.bn-latn",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "ektu kom daam e dite parben?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_negotiate.en",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "Can you give me a discount on this?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.es",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "¿Puede darme un descuento?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.hi",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "क्या आप थोड़ा डिस्काउंट दे सकते हैं?",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.hi-latn",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "thoda discount milega kya?",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_negotiate.ko",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "할인해 주실 수 있나요?",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.ru",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "Вы можете сделать скидку?",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.th",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "ลดราคาได้บ้างไหมครับ",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.tr",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "İndirim yapabilir misiniz?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_negotiate.zh",
+      "concept_id": "price_negotiate",
+      "intent": "NEGOTIATION",
+      "text": "能给我打个折扣吗？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.ar",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "أين طلبي؟",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.ar-latn",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "wein talabi?",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "order_where.bn",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "আমার অর্ডারটা কোথায়?",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.bn-latn",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "amar order ta kothay?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "order_where.en",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "Where is my order?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.es",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "¿Dónde está mi pedido?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.hi",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "मेरा ऑर्डर कहाँ है?",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.hi-latn",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "mera order kahan hai?",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "order_where.ko",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "제 주문은 어디에 있나요?",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.ru",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "Где мой заказ?",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.th",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "ออเดอร์ของฉันอยู่ที่ไหน",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.tr",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "Siparişim nerede?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "order_where.zh",
+      "concept_id": "order_where",
+      "intent": "ORDER_STATUS",
+      "text": "我的订单在哪里？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.ar",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "كم سعر هذا؟",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.ar-latn",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "kam si3r hatha?",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_how_much.bn",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "এটার দাম কত?",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.bn-latn",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "eta'r dam koto?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_how_much.en",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "How much does this cost?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.es",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "¿Cuánto cuesta esto?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.hi",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "इसकी कीमत कितनी है?",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.hi-latn",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "iski keemat kitni hai?",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "price_how_much.ko",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "이거 얼마예요?",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.ru",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "Сколько это стоит?",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.th",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "อันนี้ราคาเท่าไหร่",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.tr",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "Bu ne kadar?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "price_how_much.zh",
+      "concept_id": "price_how_much",
+      "intent": "PRICE_INQUIRY",
+      "text": "这个多少钱？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.ar",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "هل هذا المنتج متوفر؟",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.ar-latn",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "hal hatha al-muntaj mutawafir?",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "stock_available.bn",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "এটা কি স্টকে আছে?",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.bn-latn",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "eta ki stock e ache?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "stock_available.en",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "Is this item in stock?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.es",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "¿Este artículo está disponible?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.hi",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "क्या यह स्टॉक में है?",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.hi-latn",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "kya yeh stock mein hai?",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "stock_available.ko",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "이거 재고 있나요?",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.ru",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "Этот товар есть в наличии?",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.th",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "สินค้านี้มีของไหม",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.tr",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "Bu ürün stokta var mı?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "stock_available.zh",
+      "concept_id": "stock_available",
+      "intent": "PRODUCT_AVAILABILITY",
+      "text": "这个有货吗？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.ar",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "أخبرني عن تفاصيل هذا المنتج.",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.ar-latn",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "akhbirni 'an tafasil hadha al-muntaj.",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "product_details_ask.bn",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "এই পণ্যটার বিস্তারিত জানতে চাই।",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.bn-latn",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "ei product ta shathe ki ki thake?",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "product_details_ask.en",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "Can you tell me more about this product?",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.es",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "¿Me puedes dar más información sobre este producto?",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.hi",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "इस उत्पाद के बारे में और जानकारी दीजिए।",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.hi-latn",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "is product ke baare mein batao.",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "product_details_ask.ko",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "이 제품에 대해 더 자세히 알고 싶어요.",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.ru",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "Расскажите подробнее об этом товаре.",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.th",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "ขอรายละเอียดเพิ่มเติมเกี่ยวกับสินค้านี้",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.tr",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "Bu ürün hakkında daha fazla bilgi alabilir miyim?",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "product_details_ask.zh",
+      "concept_id": "product_details_ask",
+      "intent": "PRODUCT_INFO",
+      "text": "能告诉我这个产品的详细信息吗？",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.ar",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "أريد إرجاع هذا المنتج.",
+      "language": "ar",
+      "script": "arabic",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.ar-latn",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "urid irja3 hatha al-muntaj.",
+      "language": "ar",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "return_want.bn",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "আমি এই পণ্যটা ফেরত দিতে চাই।",
+      "language": "bn",
+      "script": "bengali",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.bn-latn",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "ami ei product ta ferot dite chai.",
+      "language": "bn",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "return_want.en",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "I want to return this product.",
+      "language": "en",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.es",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "Quiero devolver este producto.",
+      "language": "es",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.hi",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "मैं यह सामान वापस करना चाहता हूँ।",
+      "language": "hi",
+      "script": "devanagari",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.hi-latn",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "main yeh saaman wapas karna chahta hoon.",
+      "language": "hi",
+      "script": "latin",
+      "transliterated": true
+    },
+    {
+      "id": "return_want.ko",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "이 상품을 반품하고 싶어요.",
+      "language": "ko",
+      "script": "hangul",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.ru",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "Я хочу вернуть этот товар.",
+      "language": "ru",
+      "script": "cyrillic",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.th",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "ฉันอยากคืนสินค้านี้",
+      "language": "th",
+      "script": "thai",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.tr",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "Bu ürünü iade etmek istiyorum.",
+      "language": "tr",
+      "script": "latin",
+      "transliterated": false
+    },
+    {
+      "id": "return_want.zh",
+      "concept_id": "return_want",
+      "intent": "RETURN_REQUEST",
+      "text": "我想退回这个商品。",
+      "language": "zh",
+      "script": "han",
+      "transliterated": false
+    }
+  ]
+}

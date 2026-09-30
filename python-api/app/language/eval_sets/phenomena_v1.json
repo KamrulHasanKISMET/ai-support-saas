@@ -1,0 +1,63 @@
+{
+  "name": "phenomena_v1",
+  "purpose": "Held-out cases for the deep-language layers L1-L8 (docs/OWN_LANGUAGE_MODEL_TRAINING_PLAN.md §2, PENDING_WORK.md P5-5/P6T-3). Unlike multilingual_intents_v1.json (same goal, different language/script), this set targets phenomena WITHIN a language that a surface/phrase matcher tends to get wrong: noisy spelling, code-mixing, context-dependent meaning, implied goals without literal keywords, and negation minimal pairs. A model that only memorizes phrases should score noticeably worse here than on clean text; that gap is the point of this set.",
+  "reviewed_by_native_speakers": false,
+  "note": "Drafted by an AI assistant; NOT yet reviewed by native speakers (see PENDING_WORK.md A3/A9). Clusters/training must NOT be built from these cases -- held out for evaluation only, same rule as multilingual_intents_v1.json. `pair_id` groups cases that must be graded together (see phenomena_eval.py:score_pairs): for L5/L7 pairs, a model must produce the pair's DIFFERENT expected intents, not just be individually 'close enough'.",
+  "layers": [
+    "L1_surface_noise",
+    "L4_code_mixed",
+    "L5_context_dependent",
+    "L6_implied_goal",
+    "L7_negation_minimal_pair",
+    "L8_entity_reference"
+  ],
+  "cases": [
+    { "id": "l1_typo_price.en",       "layer": "L1_surface_noise", "concept_id": "price_typo",        "intent": "PRICE_INQUIRY",  "text": "hw much is dis one??",                              "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l1_typo_price.bn_latn",  "layer": "L1_surface_noise", "concept_id": "price_typo",        "intent": "PRICE_INQUIRY",  "text": "eita dam koto??",                                   "language": "bn", "script": "bn-latn", "context": null, "pair_id": null },
+    { "id": "l1_repeat_chars.en",     "layer": "L1_surface_noise", "concept_id": "urgent_complaint",  "intent": "COMPLAINT",      "text": "this is soooooo bad, it broke in 1 dayyyy",         "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l1_emoji_only.en",       "layer": "L1_surface_noise", "concept_id": "positive_feedback", "intent": "FEEDBACK",       "text": "😍😍😍 love it!!",                                    "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l1_emoji_complaint.en",  "layer": "L1_surface_noise", "concept_id": "angry_complaint",   "intent": "COMPLAINT",      "text": "😡😡 never buying again",                            "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l1_ellipsis_hesitant.en","layer": "L1_surface_noise", "concept_id": "hesitant_order",    "intent": "CREATE_ORDER",   "text": "ok... i guess ill take it... send it pls",         "language": "en", "script": "latin", "context": null, "pair_id": null },
+
+    { "id": "l4_mixed_stock.bn_en",   "layer": "L4_code_mixed", "concept_id": "stock_check",      "intent": "PRODUCT_INQUIRY", "text": "ei product ta available ache?",                        "language": "bn", "script": "bn-latn", "context": null, "pair_id": null },
+    { "id": "l4_mixed_order.bn_en",   "layer": "L4_code_mixed", "concept_id": "order_status",     "intent": "ORDER_STATUS",    "text": "amar order ta kobe deliver hobe?",                     "language": "bn", "script": "bn-latn", "context": null, "pair_id": null },
+    { "id": "l4_mixed_price.bn_en",   "layer": "L4_code_mixed", "concept_id": "price_inquiry",    "intent": "PRICE_INQUIRY",   "text": "eta ki discount e paoa jabe? price koto porbe?",       "language": "bn", "script": "bn-latn", "context": null, "pair_id": null },
+    { "id": "l4_mixed_complaint.bn_en","layer": "L4_code_mixed", "concept_id": "damaged_complaint","intent": "COMPLAINT",       "text": "product ta damaged obostay peyechi, ki kora jay?",      "language": "bn", "script": "bn-latn", "context": null, "pair_id": null },
+
+    { "id": "l5_ctx_size.en.a", "layer": "L5_context_dependent", "concept_id": "context_size",  "intent": "PRODUCT_INQUIRY", "text": "does it come in large?",  "language": "en", "script": "latin",
+      "context": [ { "role": "assistant", "text": "Here is our Classic Cotton T-Shirt, available in S/M/L/XL." } ], "pair_id": "ctx_size" },
+    { "id": "l5_ctx_size.en.b", "layer": "L5_context_dependent", "concept_id": "context_size",  "intent": "ORDER_STATUS", "text": "does it come in large?",  "language": "en", "script": "latin",
+      "context": [ { "role": "assistant", "text": "Your order #A1042 has shipped and is out for delivery today." } ], "pair_id": "ctx_size",
+      "notes": "Same literal sentence; with no product in context it does not mean PRODUCT_INQUIRY. A model must use context, not the string alone. NOTE: exact expected label for the 'b' branch is genuinely ambiguous out of context -- treat this pair primarily as a CONSISTENCY check (a good model should be IN DOUBT or ask a clarifying question here, not confidently repeat the 'a' answer) rather than a hard pass/fail; see phenomena_eval.py." },
+
+    { "id": "l5_ctx_pronoun.en.a", "layer": "L5_context_dependent", "concept_id": "context_pronoun", "intent": "PRICE_INQUIRY", "text": "and that one? how much?", "language": "en", "script": "latin",
+      "context": [ { "role": "user", "text": "Do you have the blue backpack?" }, { "role": "assistant", "text": "Yes, and we also have it in black." } ], "pair_id": "ctx_pronoun" },
+    { "id": "l5_ctx_pronoun.en.b", "layer": "L5_context_dependent", "concept_id": "context_pronoun", "intent": "ORDER_STATUS", "text": "and that one? how much longer?", "language": "en", "script": "latin",
+      "context": [ { "role": "user", "text": "I placed two orders yesterday, #100 and #101." }, { "role": "assistant", "text": "Order #100 has been delivered." } ], "pair_id": "ctx_pronoun" },
+
+    { "id": "l6_implied_replacement.en", "layer": "L6_implied_goal", "concept_id": "implied_replacement", "intent": "COMPLAINT", "text": "it arrived broken", "language": "en", "script": "latin", "context": null, "pair_id": null,
+      "notes": "No question mark, no explicit request -- the implied goal is a replacement/refund, which is still COMPLAINT at the intent layer; a surface matcher anchored on question words can miss this." },
+    { "id": "l6_implied_wrong_item.en", "layer": "L6_implied_goal", "concept_id": "implied_wrong_item", "intent": "COMPLAINT", "text": "this isn't even what I ordered", "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l6_implied_cancel.en", "layer": "L6_implied_goal", "concept_id": "implied_cancel", "intent": "CANCEL_ORDER", "text": "actually forget it, I don't need this anymore", "language": "en", "script": "latin", "context": null, "pair_id": null },
+    { "id": "l6_implied_price_hint.bn_latn", "layer": "L6_implied_goal", "concept_id": "implied_price_objection", "intent": "PRICE_INQUIRY", "text": "eto dam?! kom e hobe na?", "language": "bn", "script": "bn-latn", "context": null, "pair_id": null,
+      "notes": "Literal reading is an exclamation, not a question, but the implied goal is a price inquiry / negotiation opener." },
+
+    { "id": "l7_negation_want.en.pos", "layer": "L7_negation_minimal_pair", "concept_id": "negation_want", "intent": "CREATE_ORDER", "text": "I want the red one",     "language": "en", "script": "latin", "context": null, "pair_id": "neg_want" },
+    { "id": "l7_negation_want.en.neg", "layer": "L7_negation_minimal_pair", "concept_id": "negation_want", "intent": "PRODUCT_INQUIRY", "text": "I do NOT want the red one, do you have other colors?", "language": "en", "script": "latin", "context": null, "pair_id": "neg_want" },
+
+    { "id": "l7_negation_received.en.pos", "layer": "L7_negation_minimal_pair", "concept_id": "negation_received", "intent": "ORDER_STATUS", "text": "I received my order today", "language": "en", "script": "latin", "context": null, "pair_id": "neg_received" },
+    { "id": "l7_negation_received.en.neg", "layer": "L7_negation_minimal_pair", "concept_id": "negation_received", "intent": "COMPLAINT", "text": "I have NOT received my order and it's been 2 weeks", "language": "en", "script": "latin", "context": null, "pair_id": "neg_received" },
+
+    { "id": "l7_condition_color.en.a", "layer": "L7_negation_minimal_pair", "concept_id": "conditional_order", "intent": "PRODUCT_INQUIRY", "text": "I'll take it only if it comes in red", "language": "en", "script": "latin", "context": null, "pair_id": "cond_color" },
+    { "id": "l7_condition_color.en.b", "layer": "L7_negation_minimal_pair", "concept_id": "conditional_order", "intent": "CREATE_ORDER", "text": "I'll take it, red please", "language": "en", "script": "latin", "context": null, "pair_id": "cond_color" },
+
+    { "id": "l8_entity_order_id.en", "layer": "L8_entity_reference", "concept_id": "order_id_ref", "intent": "ORDER_STATUS", "text": "where is order #A1042?", "language": "en", "script": "latin", "context": null, "pair_id": null,
+      "entities": [ { "type": "order_id", "value": "A1042" } ] },
+    { "id": "l8_entity_quantity.en", "layer": "L8_entity_reference", "concept_id": "quantity_ref", "intent": "CREATE_ORDER", "text": "I'll take 3 of the blue mugs", "language": "en", "script": "latin", "context": null, "pair_id": null,
+      "entities": [ { "type": "quantity", "value": "3" }, { "type": "product_attribute", "value": "blue" } ] },
+    { "id": "l8_entity_ordinal_ref.en", "layer": "L8_entity_reference", "concept_id": "ordinal_ref", "intent": "PRODUCT_INQUIRY", "text": "how much is the second one from the top?", "language": "en", "script": "latin",
+      "context": [ { "role": "assistant", "text": "Here are 3 options: 1) Classic Mug 2) Travel Mug 3) Ceramic Mug" } ], "pair_id": null,
+      "entities": [ { "type": "ordinal_reference", "value": "2" } ],
+      "notes": "Resolving 'the second one' to 'Travel Mug' needs the prior list in context, not the literal string." }
+  ]
+}
