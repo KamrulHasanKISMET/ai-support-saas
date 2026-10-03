@@ -55,5 +55,14 @@ class Settings(BaseSettings):
     knowledge_chunk_size_chars: int = 1000
     knowledge_chunk_overlap_chars: int = 150
 
+    # Phase 6: Model Shadow
+    model_shadow_enabled: bool = False
+
+    # Phase 6 P6-4: Model Serving
+    model_serving_enabled: bool = False
+
+    # Phase 6 P6-4: Canary Model Serving
+    model_serving_canary_enabled: bool = False
+
 
 settings = Settings()

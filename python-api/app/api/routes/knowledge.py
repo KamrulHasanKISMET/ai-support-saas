@@ -3,17 +3,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import require_internal_secret
-from app.knowledge.ingestion_service import ingest_document, upsert_faq_chunk
+from app.knowledge.ingestion_service import (
+    ingest_document,
+    upsert_faq_chunk,
+)
+from app.rag.ingestion import (
+    delete_document,
+    list_documents,
+)
 from app.schemas.knowledge import IngestResponse
 
 router = APIRouter(
-    prefix="/knowledge", tags=["knowledge"], dependencies=[Depends(require_internal_secret)]
+    prefix="/knowledge",
+    tags=["knowledge"],
+    dependencies=[Depends(require_internal_secret)],
 )
 
 
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest(
-    tenantId: int = Form(...),
+    tenantId: int = Form(..., alias="tenantId", extra="forbid"),
     documentId: int = Form(...),
     category: str | None = Form(default=None),
     language: str | None = Form(default=None),
@@ -22,19 +31,13 @@ async def ingest(
 ) -> IngestResponse:
     """
     Called by node-api's knowledge.client.ts (POST /documents/:id/process)
-    with the already-validated file bytes -- node-api already ran
-    fileValidation.ts's extension/MIME/magic-byte checks and owns the
-    tenant-auth/ownership check (a caller here has already proven it
-    holds INTERNAL_SERVICE_SECRET, but tenant_id/document_id are still
-    just data at this layer, not re-authorized -- node-api is the only
-    caller and already scoped them to the authenticated tenant).
+    with the already-validated file bytes.
 
-    Runs the full extract -> chunk -> embed -> store pipeline
-    synchronously and returns once it's done (see
-    ingestion_service.py's module docstring for why: no job queue
-    exists yet).
+    Runs the existing file-based extract -> chunk -> embed -> store
+    pipeline synchronously.
     """
     file_bytes = await file.read()
+
     result = await ingest_document(
         db,
         tenant_id=tenantId,
@@ -44,8 +47,11 @@ async def ingest(
         category=category,
         language=language,
     )
+
     return IngestResponse(
-        status=result.status, chunkCount=result.chunk_count, errorMessage=result.error_message
+        status=result.status,
+        chunkCount=result.chunk_count,
+        errorMessage=result.error_message,
     )
 
 
@@ -58,11 +64,11 @@ async def ingest_faq(
     category: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Called by node-api after POST/PATCH /knowledge/faq -- embeds the
-    Q&A pair as a single chunk so it's retrievable by RAG search
-    alongside uploaded documents (phase 9/10). Returns the synthetic
-    knowledge_documents.id node-api stores on
-    knowledge_faqs.knowledge_document_id."""
+    """
+    Called by node-api after POST/PATCH /knowledge/faq.
+
+    Embeds the Q&A pair as a single chunk so it is retrievable by RAG.
+    """
     document_id = await upsert_faq_chunk(
         db,
         tenant_id=tenantId,
@@ -71,4 +77,44 @@ async def ingest_faq(
         answer=answer,
         category=category,
     )
+
     return {"knowledgeDocumentId": document_id}
+
+
+@router.get("/documents")
+async def get_documents(
+    tenantId: int = Form(..., alias="tenantId", extra="forbid"),
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """
+    Return metadata for knowledge documents belonging to this tenant.
+
+    Raw document content is intentionally excluded.
+    """
+    return await list_documents(
+        db,
+        tenant_id=tenantId,
+        limit=limit,
+    )
+
+
+@router.delete("/documents/{document_id}")
+async def remove_document(
+    document_id: int,
+    tenantId: int = Form(..., alias="tenantId", extra="forbid"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Delete a knowledge document only when it belongs to this tenant.
+    knowledge_chunks are removed by the database foreign-key cascade.
+    """
+    deleted = await delete_document(
+        db,
+        tenant_id=tenantId,
+        document_id=document_id,
+    )
+    return {
+        "deleted": deleted,
+        "documentId": document_id,
+    }

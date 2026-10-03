@@ -1,6 +1,17 @@
 from fastapi import FastAPI
 
-from app.api.routes import ai, health, knowledge, memory, metrics, rag, readiness,understanding
+from app.api.routes import (
+    admin_calibration,
+    admin_novelty,
+    ai,
+    health,
+    knowledge,
+    memory,
+    metrics,
+    rag,
+    readiness,
+    understanding,
+)
 from app.core.logging import configure_logging
 from app.core.request_middleware import RequestMetricsMiddleware
 from app.core.metrics_middleware import MetricsMiddleware
@@ -37,3 +48,5 @@ app.include_router(rag.router)
 app.include_router(memory.router)
 app.include_router(knowledge.router)
 app.include_router(understanding.router)
+app.include_router(admin_calibration.router)
+app.include_router(admin_novelty.router)
