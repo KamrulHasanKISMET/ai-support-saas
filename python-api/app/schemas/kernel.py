@@ -22,12 +22,29 @@ class KernelRunResponse(BaseModel):
     detectedLanguage: str | None = None
     replyLanguage: str | None = None
 
+    # Language + intent attribution metadata.
+    # Carried from the Kernel's existing Language/Intent decisions
+    # for CoreAgent persistence and model attribution.
+    languageConfidence: float | None = None
+    language: str | None = None
+    script: str | None = None
+    isTransliterated: bool = False
+    codeMixing: str | None = None
+    intentSource: str | None = None
+    # Language Understanding metadata.
+    # Produced by the Language Engine and carried through the Kernel
+    # response for CoreAgent persistence.
     # Added for Agent Run Trace (docs/AGENT.md) — all optional with
     # defaults, purely additive, same non-breaking pattern as above.
     # CoreAgent reads these to build an AgentRunTrace; nothing about
     # the Kernel's control flow, prompts, or error boundaries changed
     # to add them, only what's already-computed data gets returned.
     normalizedMessage: str | None = None
+    communicationStyle: str | None = None
+    isAmbiguous: bool = False
+    ambiguityReason: str | None = None
+    entitySpans: list[str] = []
+
     decision: str | None = None  # 'clarify' | 'answered' | 'fallback'
     retrievalUsed: bool = False
     retrievalChunkCount: int = 0
