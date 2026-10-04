@@ -287,10 +287,13 @@ class TestTriageHandler(unittest.TestCase):
 
 class TestWiring(unittest.TestCase):
     def test_routes_registered(self):
-        got = {(m, p) for m, p, _ in an.router.routes}
-        self.assertIn(("GET", "/tenants/{tenant_id}/novelty-events"), got)
-        self.assertIn(("PATCH", "/novelty-events/{event_id}"), got)
-
+        got = {
+            (method, route.path)
+            for route in an.router.routes
+            for method in (route.methods or set())
+        }
+        self.assertIn(("GET", "/admin/tenants/{tenant_id}/novelty-events"), got)
+        self.assertIn(("PATCH", "/admin/novelty-events/{event_id}"), got)
     def test_router_gated_and_prefixed(self):
         self.assertEqual(an.router.prefix, "/admin")
         self.assertTrue(an.router.dependencies)

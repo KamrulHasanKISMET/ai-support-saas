@@ -308,9 +308,13 @@ class TestPutHandler(unittest.TestCase):
 
 class TestRouterWiring(unittest.TestCase):
     def test_routes_registered(self):
-        got = {(m, p) for m, p, _ in ac.router.routes}
-        self.assertIn(("GET", "/tenants/{tenant_id}/calibration-config"), got)
-        self.assertIn(("PUT", "/tenants/{tenant_id}/calibration-config"), got)
+        got = {
+            (method, route.path)
+            for route in ac.router.routes
+            for method in (route.methods or set())
+        }
+        self.assertIn(("GET", "/admin/tenants/{tenant_id}/calibration-config"), got)
+        self.assertIn(("PUT", "/admin/tenants/{tenant_id}/calibration-config"), got)
 
     def test_router_is_secret_gated_and_prefixed(self):
         self.assertEqual(ac.router.prefix, "/admin")
