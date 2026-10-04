@@ -31,8 +31,11 @@ future change doesn't silently misinterpret them. (Prometheus's own
 multiprocess mode would be needed at that point -- see
 docs/RELIABILITY.md "Scaling triggers".)
 """
+try:
+    import resource
+except ImportError:
+    resource = None
 
-import resource
 import time
 from dataclasses import dataclass, field
 from threading import Lock
@@ -70,11 +73,15 @@ def record_request(status_code: int, duration_ms: float) -> None:
         _metrics.record(status_code, duration_ms)
 
 
+
 def _current_rss_mb() -> float | None:
-    """Current resident memory in MB, read from /proc (Linux-only --
-    true for every environment this runs in per docker-compose.yml).
-    Falls back to peak RSS (resource.ru_maxrss) if /proc is unavailable
-    rather than raising -- infra metrics must never break a request."""
+    """Return current resident memory in MB.
+
+    Linux: read VmRSS from /proc.
+    Windows: use the native GetProcessMemoryInfo API.
+    Other environments: fall back to resource.ru_maxrss when available.
+    """
+    # Linux
     try:
         with open("/proc/self/status") as f:
             for line in f:
@@ -83,10 +90,60 @@ def _current_rss_mb() -> float | None:
                     return round(kb / 1024, 1)
     except Exception:
         pass
+
+    # Windows
+    if resource is None:
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = [
+                    ("cb", wintypes.DWORD),
+                    ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            counters = PROCESS_MEMORY_COUNTERS()
+            counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+
+            process = ctypes.windll.kernel32.GetCurrentProcess()
+            get_memory = ctypes.windll.psapi.GetProcessMemoryInfo
+
+            get_memory.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(PROCESS_MEMORY_COUNTERS),
+                wintypes.DWORD,
+            ]
+            get_memory.restype = wintypes.BOOL
+
+            if get_memory(
+                process,
+                ctypes.byref(counters),
+                counters.cb,
+            ):
+                return round(
+                    counters.WorkingSetSize / (1024 * 1024),
+                    1,
+                )
+        except Exception:
+            pass
+
+        return None
+
+    # Linux/macOS resource fallback
     try:
-        # ru_maxrss is KB on Linux, bytes on macOS -- this service only
-        # ever runs in the Linux containers defined in docker-compose.yml.
-        return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+        return round(
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
+            1,
+        )
     except Exception:
         return None
 
@@ -98,10 +155,15 @@ def get_infra_snapshot() -> dict:
     a true CPU% needs sampling over an interval, which is out of scope
     for this phase. Documented explicitly in docs/OBSERVABILITY.md so
     it isn't misread as "current load"."""
-    usage = resource.getrusage(resource.RUSAGE_SELF)
+
+    if resource is not None:
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        cpu_time_seconds = usage.ru_utime + usage.ru_stime
+    else:
+        cpu_time_seconds = time.process_time()
     return {
         "uptime_seconds": round(time.time() - _process_started_at, 1),
-        "cpu_time_seconds": round(usage.ru_utime + usage.ru_stime, 2),
+        "cpu_time_seconds": round(cpu_time_seconds, 2),
         "memory_rss_mb": _current_rss_mb(),
     }
 
