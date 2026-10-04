@@ -375,9 +375,7 @@ class CoreAgent:
                 experience_id=experience_id,
                 decision=model_serve,
                 final_intent=kernel_result.intent,
-                kernel_used_hint=(
-                    kernel_result.intentSource == "brain"
-                ),
+                kernel_used_hint=(kernel_result.intentSource == "brain"),
                 language=getattr(
                     kernel_result,
                     "language",
